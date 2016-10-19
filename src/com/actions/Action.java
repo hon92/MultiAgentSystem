@@ -3,8 +3,9 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package com;
+package com.actions;
 
+import com.Agent;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -16,25 +17,46 @@ import java.util.logging.Logger;
  *
  * @author Honza
  */
-public class AckAction implements Action
+public abstract class Action
 {
-    private final String ip;
-    private final int port;
+    private final String prefix;
+    private final int paramsLength;
+    private Agent agent;
 
-    public AckAction(String ip, int port)
+    public Action(String prefix, int paramsLength, Agent agent)
     {
-        this.ip = ip;
-        this.port = port;
+        this.prefix = prefix;
+        this.paramsLength = paramsLength;
+        this.agent = agent;
     }
 
-    @Override
-    public void perform()
+    public Agent getAgent()
+    {
+        return agent;
+    }
+
+    public String getPrefix()
+    {
+        return prefix;
+    }
+
+    public int getParamsLength()
+    {
+        return paramsLength;
+    }
+
+    public abstract void perform(String msg) throws Exception;
+
+    protected boolean sendMessageToAddress(String msg, String ip, int port)
     {
         Socket s = null;
+
         try
         {
+            Agent a = getAgent();
+            String aip = a.getIp();
+            int aport = a.getPort();
             s = new Socket(ip, port);
-            String msg = String.format("ack %s %d", ip, port);
             try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream())))
             {
                 bw.write(msg);
@@ -43,7 +65,8 @@ public class AckAction implements Action
         }
         catch (IOException ex)
         {
-            Logger.getLogger(SendAgentMessage.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Action.class.getName()).log(Level.SEVERE, null, ex);
+            return false;
         }
         finally
         {
@@ -55,11 +78,11 @@ public class AckAction implements Action
                 }
                 catch (IOException ex)
                 {
-                    Logger.getLogger(SendAgentMessage.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Action.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }
-
+        return true;
     }
 
 }

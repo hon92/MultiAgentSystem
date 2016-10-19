@@ -5,11 +5,15 @@
  */
 package com;
 
+import com.actions.Action;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Observable;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -32,6 +36,8 @@ public class Agent extends Observable
     private Thread envCheckThread = null;
     private boolean running = false;
     private final BlockingQueue<String> messages = new ArrayBlockingQueue<>(1000);
+    private final List<Action> availableActions = new ArrayList<>();
+    private final List<String> savedMessages = new ArrayList<>();
 
     public Agent(String name, int port, String ip)
     {
@@ -48,9 +54,29 @@ public class Agent extends Observable
         //System.out.println("Agent state changed to " + newState);
     }
 
+    public void addAction(Action action)
+    {
+        availableActions.add(action);
+    }
+
     public String getName()
     {
         return this.name;
+    }
+
+    public int getPort()
+    {
+        return port;
+    }
+
+    public String getIp()
+    {
+        return ip;
+    }
+
+    public AgentDb getAgentDb()
+    {
+        return agentsDb;
     }
 
     public void start() throws IOException
@@ -116,113 +142,45 @@ public class Agent extends Observable
     }
     public void see(String msg)
     {
-        Action action = next(msg, state);
-        if (action != null)
+        String prefix = getMessagePrefix(msg);
+
+        for (Action a : availableActions)
         {
-            action.perform();
+            if (a.getPrefix().equals(prefix))
+            {
+                try
+                {
+                    a.perform(msg);
+                }
+                catch (Exception ex)
+                {
+                    System.err.println(ex.getMessage());
+                }
+                return;
+            }
+        }
+
+        displayMessage(msg);
+    }
+
+    private String getMessagePrefix(String msg)
+    {
+        int i = msg.indexOf(" ");
+        if (i > -1)
+        {
+            return msg.substring(0, i);
+        }
+        else
+        {
+            return msg;
         }
     }
 
-    private Action next(String message, String prevState)
+    public void displayMessage(String message)
     {
         final String MSG = "Agent '%s' get msg: '%s'";
         setChanged();
-
-        if (message.startsWith("send"))
-        {
-            // send 127.0.0.1 25000 message
-            String[] s = message.split(" ");
-            if (s.length >= 4)
-            {
-                String agentAddress = s[1];
-                String p = s[2];
-                int agentPort;
-                String msg = s[3];
-                for (int i = 4; i < s.length; i++)
-                {
-                    msg += " " + s[i];
-                }
-                try
-                {
-                    agentPort = Integer.parseInt(p);
-                    setState("sending");
-                    notifyObservers(String.format(MSG, name, String.format("sending msg: '%s' on agent on %s:%d",
-                            msg,
-                            agentAddress,
-                            agentPort)));
-                    return new SendAgentMessage(ip,
-                            agentAddress,
-                            port,
-                            agentPort,
-                            msg);
-                }
-                catch (NumberFormatException ex)
-                {
-                    setState(prevState);
-                    return null;
-                }
-            }
-        }
-
-        if (message.startsWith("receive"))
-        {
-            // receive 127.0.0.1 25000 message
-            String[] s = message.split(" ");
-            if (s.length >= 4)
-            {
-                String agentAddress = s[1];
-                String p = s[2];
-                int agentPort;
-                String msg = s[3];
-                for (int i = 4; i < s.length; i++)
-                {
-                    msg += " " + s[i];
-                }
-                try
-                {
-                    agentPort = Integer.parseInt(p);
-                    setState("receive");
-                    notifyObservers(String.format(MSG, name, String.format("received msg: '%s' from agent on %s:%d",
-                            msg,
-                            agentAddress,
-                            agentPort)));
-                    return new AckAction(agentAddress, agentPort);
-                }
-                catch (NumberFormatException ex)
-                {
-                    setState(prevState);
-                    return null;
-                }
-            }
-        }
-
-        if (message.startsWith("ack"))
-        {
-            //ack 127.0.0.1 2000
-            String[] s = message.split(" ");
-            if (s.length == 3)
-            {
-                String agentAddress = s[1];
-                String p = s[2];
-                int agentPort;
-                try
-                {
-                    agentPort = Integer.parseInt(p);
-                    setState("ack");
-                    notifyObservers(String.format(MSG, name, String.format("ack from %s:%d", agentAddress, agentPort)));
-                    return null;
-                }
-                catch (NumberFormatException ex)
-                {
-                    setState(prevState);
-                    return null;
-                }
-            }
-        }
-
-        setState(prevState);
         notifyObservers(String.format(MSG, name, message));
-        return null;
     }
 
     private final Runnable listeningWorker = new Runnable()
@@ -235,8 +193,9 @@ public class Agent extends Observable
                 try
                 {
                     Socket socket = serverSocket.accept();
-                    agentsDb.addAgent(socket);
                     String newMsg = readSocket(socket);
+                    InetAddress localAddress = socket.getInetAddress();
+                    int localPort = socket.getLocalPort();
                     messages.put(newMsg);
                 }
                 catch (IOException ex)
@@ -287,4 +246,15 @@ public class Agent extends Observable
             }
         }
     };
+
+    public void addMessage(String message) throws InterruptedException
+    {
+        messages.put(message);
+    }
+
+    public void saveMessage(String message)
+    {
+        savedMessages.add(message);
+    }
+
 }

@@ -5,8 +5,6 @@
  */
 package com;
 
-import java.net.InetAddress;
-import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,10 +18,10 @@ public class AgentDb
     private class AgentEntry
     {
 
-        public InetAddress address;
+        public String address;
         public int port;
 
-        public AgentEntry(InetAddress address, int port)
+        public AgentEntry(String address, int port)
         {
             this.address = address;
             this.port = port;
@@ -47,10 +45,8 @@ public class AgentDb
         agentDb = new ArrayList<>();
     }
 
-    public void addAgent(Socket s)
+    public void addAgent(String address, int port)
     {
-        InetAddress address = s.getInetAddress();
-        int port = s.getLocalPort();
         AgentEntry newAgent = new AgentEntry(address, port);
         if (!agentDb.contains(newAgent))
         {

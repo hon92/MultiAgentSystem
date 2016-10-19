@@ -5,6 +5,10 @@
  */
 package com;
 
+import com.actions.AckAction;
+import com.actions.ReceiveAction;
+import com.actions.SendAction;
+import com.actions.StoreAction;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -35,7 +39,7 @@ public class Window extends javax.swing.JFrame implements Observer
         setLocationRelativeTo(null);
         model = new DefaultListModel<>();
         agentsList.setModel(model);
-        messageField.setText("send 127.0.0.1 20000 aaa");
+        messageField.setText("send 127.0.0.1 20000 send 127.0.0.1 10000 ahoj");
         try
         {
             addAgent("a", "127.0.0.1", 10000);
@@ -50,6 +54,11 @@ public class Window extends javax.swing.JFrame implements Observer
     private void addAgent(String name, String ip, int port) throws IOException
     {
         Agent a = new Agent(name, port, ip);
+        a.addAction(new SendAction("send", 3, a));
+        a.addAction(new ReceiveAction("receive", 3, a));
+        a.addAction(new AckAction("ack", 2, a));
+        a.addAction(new StoreAction("store", 1, a));
+
         a.addObserver(this);
         a.start();
         agents.add(a);
