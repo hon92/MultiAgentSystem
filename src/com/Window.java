@@ -5,12 +5,13 @@
  */
 package com;
 
-import com.actions.AckAction;
-import com.actions.ReceiveAction;
 import com.actions.SendAction;
+import com.actions.SolveAction;
 import com.actions.StoreAction;
 import java.io.IOException;
+import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Observable;
@@ -39,31 +40,35 @@ public class Window extends javax.swing.JFrame implements Observer
         setLocationRelativeTo(null);
         model = new DefaultListModel<>();
         agentsList.setModel(model);
-        messageField.setText("send 127.0.0.1 20000 send 127.0.0.1 10000 ahoj");
+        messageField.setText("");
+        ipField.setText(getLocalIp());
+    }
+
+    private String getLocalIp()
+    {
         try
         {
-            addAgent("a", "127.0.0.1", 10000);
-            addAgent("b", "127.0.0.1", 20000);
+            return Inet4Address.getLocalHost().getHostAddress();
         }
-        catch (IOException ex)
+        catch (UnknownHostException ex)
         {
             Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+            return "";
         }
     }
 
-    private void addAgent(String name, String ip, int port) throws IOException
+    private void addAgent(String name, String ip, int port) throws IOException, InterruptedException
     {
         Agent a = new Agent(name, port, ip);
-        a.addAction(new SendAction("send", 3, a));
-        a.addAction(new ReceiveAction("receive", 3, a));
-        a.addAction(new AckAction("ack", 2, a));
-        a.addAction(new StoreAction("store", 1, a));
+        a.addAction(new SendAction());
+        a.addAction(new StoreAction(a));
+        a.addAction(new SolveAction());
 
         a.addObserver(this);
         a.start();
         agents.add(a);
         model.addElement(name);
-        printOutput(String.format("Agent '%s' was created and listening at port '%d'", name, port));
+        printOutput(String.format("Agent '%s' was created and listening at '%s:%d'", name, ip, port));
     }
 
     private synchronized void printOutput(String text)
@@ -216,13 +221,11 @@ public class Window extends javax.swing.JFrame implements Observer
                                     .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                     .addComponent(jLabel3)
                                     .addComponent(jLabel5))
-                                .addGap(18, 18, 18)
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                                     .addComponent(jLabel2)
-                                    .addGroup(layout.createSequentialGroup()
-                                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 144, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(jButton1))))
+                                    .addComponent(jButton1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)))
                             .addGroup(layout.createSequentialGroup()
                                 .addComponent(messageField, javax.swing.GroupLayout.PREFERRED_SIZE, 548, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addGap(18, 18, 18)
@@ -242,10 +245,10 @@ public class Window extends javax.swing.JFrame implements Observer
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jLabel2)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(jButton1))))
-                .addGap(18, 18, 18)
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 88, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jButton1)))
+                .addGap(26, 26, 26)
                 .addComponent(jLabel5)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
@@ -272,7 +275,6 @@ public class Window extends javax.swing.JFrame implements Observer
             addAgent(agentName, ip, agentPort);
             agentNameField.setText("");
             agentPortField.setText("");
-            ipField.setText("");
         }
         catch (Exception e)
         {
@@ -306,9 +308,8 @@ public class Window extends javax.swing.JFrame implements Observer
 
         if (agentToSend != null)
         {
-            agentToSend.see(message);
+            agentToSend.see(agentToSend.getIp() + ":" + agentToSend.getPort() + " " + message);
         }
-        messageField.setText("");
     }//GEN-LAST:event_sendButtonActionPerformed
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_jButton1ActionPerformed
@@ -330,9 +331,20 @@ public class Window extends javax.swing.JFrame implements Observer
             }
             if (agentToRemove != null)
             {
-                agentToRemove.stop();
-                agents.remove(agentToRemove);
-                model.removeElement(selected);
+                try
+                {
+                    agentToRemove.stop();
+                    agents.remove(agentToRemove);
+                    model.removeElement(selected);
+                }
+                catch (IOException ex)
+                {
+                    Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                catch (InterruptedException ex)
+                {
+                    Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         }
     }//GEN-LAST:event_jButton1ActionPerformed

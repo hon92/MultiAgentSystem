@@ -5,13 +5,13 @@
  */
 package com;
 
+import com.actions.AckAction;
 import com.actions.Action;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Observable;
@@ -19,6 +19,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  *
@@ -26,9 +28,10 @@ import java.util.logging.Logger;
  */
 public class Agent extends Observable
 {
+    private static final String MSG_PATTERN = "(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3}):(\\d+)\\s(.+)";
     private String state;
     private final AgentDb agentsDb;
-    private ServerSocket serverSocket;
+    private DatagramChannel serverChannel;
     private final String name;
     private final String ip;
     private final int port;
@@ -51,7 +54,6 @@ public class Agent extends Observable
     private void setState(String newState)
     {
         this.state = newState;
-        //System.out.println("Agent state changed to " + newState);
     }
 
     public void addAction(Action action)
@@ -79,32 +81,19 @@ public class Agent extends Observable
         return agentsDb;
     }
 
-    public void start() throws IOException
+    public void start() throws InterruptedException, IOException
     {
         if (envCheckThread != null)
         {
-            try
-            {
-                envCheckThread.join();
-            }
-            catch (InterruptedException ex)
-            {
-                Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            envCheckThread.join();
         }
         if (listeningThread != null)
         {
-            try
-            {
-                listeningThread.join();
-            }
-            catch (InterruptedException ex)
-            {
-                Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            listeningThread.join();
         }
         running = true;
-        serverSocket = new ServerSocket(port);
+        serverChannel = DatagramChannel.open();
+        serverChannel.bind(new InetSocketAddress(port));
         envCheckThread = new Thread(envCheckWorker);
         envCheckThread.setDaemon(true);
         envCheckThread.start();
@@ -113,54 +102,87 @@ public class Agent extends Observable
         listeningThread.start();
     }
 
-    public void stop()
+    public void stop() throws IOException, InterruptedException
     {
         running = false;
         if (listeningThread != null && listeningThread.isAlive())
         {
-            try
-            {
-                serverSocket.close();
-            }
-            catch (IOException ex)
-            {
-                Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            serverChannel.close();
         }
 
         if (envCheckThread != null && envCheckThread.isAlive())
         {
-            try
-            {
-                messages.put("exit");
-            }
-            catch (InterruptedException ex)
-            {
-                Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            messages.put("");
         }
     }
     public void see(String msg)
     {
-        String prefix = getMessagePrefix(msg);
+        Pattern p = Pattern.compile(MSG_PATTERN);
+        Matcher m = p.matcher(msg);
+        if (m.find() && m.groupCount() == 3)
+        {
+            String senderIp = m.group(1);
+            String senderPort = m.group(2);
+            String senderMessage = m.group(3);
+            String prefix = getMessagePrefix(senderMessage);
+            int senderPortNumber = Integer.parseInt(senderPort);
 
+            try
+            {
+                if (!prefix.equals("ack"))
+                {
+                    sendAck(senderIp, senderPortNumber, senderMessage);
+                }
+                else
+                {
+                    System.err.println("save to db" + senderIp + ":" + senderPort);
+                    agentsDb.addAgent(senderIp, senderPortNumber);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            Action action = findAction(prefix);
+            if (action != null)
+            {
+                try
+                {
+                    action.perform(senderIp, senderPortNumber, senderMessage);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            displayMessage(senderMessage, senderIp + ":" + senderPort);
+        }
+        else
+        {
+            System.err.println("Unknown message format: " + msg);
+        }
+    }
+
+    private Action findAction(String prefix)
+    {
         for (Action a : availableActions)
         {
             if (a.getPrefix().equals(prefix))
             {
-                try
-                {
-                    a.perform(msg);
-                }
-                catch (Exception ex)
-                {
-                    System.err.println(ex.getMessage());
-                }
-                return;
+                return a;
             }
         }
+        return null;
+    }
 
-        displayMessage(msg);
+    private void sendAck(String ip, int port, String msg) throws Exception
+    {
+        if (!ip.equals(getIp()) && port != getPort())
+        {
+            new AckAction(getIp(), getPort()).perform(ip, port, msg);
+        }
     }
 
     private String getMessagePrefix(String msg)
@@ -176,11 +198,11 @@ public class Agent extends Observable
         }
     }
 
-    public void displayMessage(String message)
+    public void displayMessage(String message, String from)
     {
-        final String MSG = "Agent '%s' get msg: '%s'";
+        final String MSG = "Agent '%s' get msg from '%s': '%s'";
         setChanged();
-        notifyObservers(String.format(MSG, name, message));
+        notifyObservers(String.format(MSG, name, from, message));
     }
 
     private final Runnable listeningWorker = new Runnable()
@@ -192,10 +214,9 @@ public class Agent extends Observable
             {
                 try
                 {
-                    Socket socket = serverSocket.accept();
-                    String newMsg = readSocket(socket);
-                    InetAddress localAddress = socket.getInetAddress();
-                    int localPort = socket.getLocalPort();
+                    ByteBuffer buffer = ByteBuffer.allocate(1024);
+                    SocketAddress socketAddress = serverChannel.receive(buffer);
+                    String newMsg = readBuffer(buffer);
                     messages.put(newMsg);
                 }
                 catch (IOException ex)
@@ -213,18 +234,13 @@ public class Agent extends Observable
         }
     };
 
-    private String readSocket(Socket socket) throws IOException
+    private String readBuffer(ByteBuffer buffer) throws IOException
     {
-        StringBuilder msgBuilder = new StringBuilder();
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream())))
-        {
-            String line = "";
-            while ((line = br.readLine()) != null)
-            {
-                msgBuilder.append(line);
-            }
-        }
-        return msgBuilder.toString();
+        buffer.flip();
+        int limit = buffer.limit();
+        byte[] bytes = new byte[limit];
+        buffer.get(bytes, 0, limit);
+        return new String(bytes);
     }
 
     private final Runnable envCheckWorker = new Runnable()

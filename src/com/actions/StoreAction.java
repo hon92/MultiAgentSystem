@@ -16,21 +16,26 @@ import java.util.regex.Pattern;
 public class StoreAction extends Action
 {
     private final String PATTERN = "(store)\\s(.+)";
-    public StoreAction(String prefix, int paramsLength, Agent agent)
+    private final Agent agent;
+
+    public StoreAction(Agent agent)
     {
-        super(prefix, paramsLength, agent);
+        super("store", 1);
+        this.agent = agent;
     }
 
     @Override
-    public void perform(String msg) throws Exception
+    public void perform(String senderIp, int senderPort, String msg) throws Exception
     {
         Pattern p = Pattern.compile(PATTERN);
         Matcher m = p.matcher(msg);
         if (m.find() && m.groupCount() == getParamsLength() + 1)
         {
             String message = m.group(2);
-            getAgent().saveMessage(message);
-            getAgent().displayMessage("store message: " + message);
+            agent.saveMessage(message);
+            String storeMsg = String.format("Agent '%s' push to store '%s'",
+                    agent.getName(), message);
+            agent.displayMessage(storeMsg, senderIp + ":" + senderPort);
         }
         else
         {

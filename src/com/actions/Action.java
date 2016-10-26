@@ -5,11 +5,10 @@
  */
 package com.actions;
 
-import com.Agent;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.net.Socket;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -21,18 +20,11 @@ public abstract class Action
 {
     private final String prefix;
     private final int paramsLength;
-    private Agent agent;
 
-    public Action(String prefix, int paramsLength, Agent agent)
+    public Action(String prefix, int paramsLength)
     {
         this.prefix = prefix;
         this.paramsLength = paramsLength;
-        this.agent = agent;
-    }
-
-    public Agent getAgent()
-    {
-        return agent;
     }
 
     public String getPrefix()
@@ -45,36 +37,36 @@ public abstract class Action
         return paramsLength;
     }
 
-    public abstract void perform(String msg) throws Exception;
+    public abstract void perform(String senderIp, int senderPort, String msg) throws Exception;
 
-    protected boolean sendMessageToAddress(String msg, String ip, int port)
+    protected boolean sendMessageToAddress(String senderIp,
+            int senderPort,
+            String msg,
+            String ip,
+            int port)
     {
-        Socket s = null;
-
+        DatagramChannel channel = null;
         try
         {
-            Agent a = getAgent();
-            String aip = a.getIp();
-            int aport = a.getPort();
-            s = new Socket(ip, port);
-            try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream())))
-            {
-                bw.write(msg);
-                bw.flush();
-            }
+            channel = DatagramChannel.open();
+            channel.bind(null);
+
+            String m = String.format("%s:%d %s", senderIp, senderPort, msg);
+            ByteBuffer buffer = ByteBuffer.wrap(m.getBytes());
+            channel.send(buffer, new InetSocketAddress(ip, port));
+            return true;
         }
-        catch (IOException ex)
+        catch (Exception ex)
         {
-            Logger.getLogger(Action.class.getName()).log(Level.SEVERE, null, ex);
-            return false;
+            ex.printStackTrace();
         }
         finally
         {
-            if (s != null)
+            if (channel != null)
             {
                 try
                 {
-                    s.close();
+                    channel.close();
                 }
                 catch (IOException ex)
                 {
@@ -82,7 +74,7 @@ public abstract class Action
                 }
             }
         }
-        return true;
+        return false;
     }
 
 }

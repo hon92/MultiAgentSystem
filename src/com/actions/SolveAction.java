@@ -5,6 +5,7 @@
  */
 package com.actions;
 
+import com.ExpressionSolver;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -12,15 +13,15 @@ import java.util.regex.Pattern;
  *
  * @author Honza
  */
-//command
-//send ip port message
-public class SendAction extends Action
+public class SolveAction extends Action
 {
-    private final String PATTERN = "(send)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)";
+    private final String PATTERN = "(solve)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)";
+    private final ExpressionSolver expressionSolver;
 
-    public SendAction()
+    public SolveAction()
     {
-        super("send", 3);
+        super("solve", 3);
+        expressionSolver = new ExpressionSolver();
     }
 
     @Override
@@ -32,21 +33,10 @@ public class SendAction extends Action
         {
             String ip = m.group(2);
             String portStr = m.group(3);
-            String message = m.group(4);
-            int port = 0;
-            try
-            {
-                port = Integer.parseInt(portStr);
-            }
-            catch (NumberFormatException e)
-            {
-                throw new Exception("Port number must be integer");
-            }
-            boolean sended = sendMessageToAddress(senderIp, senderPort, message, ip, port);
-            if (!sended)
-            {
-                throw new Exception("Cant send socket to address " + ip + ":" + portStr);
-            }
+            String expression = m.group(4);
+            int port = Integer.parseInt(portStr);
+            String expressionResult = expressionSolver.evaluate(expression).toString();
+            sendMessageToAddress(senderIp, senderPort, expressionResult, ip, port);
         }
         else
         {

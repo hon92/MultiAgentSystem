@@ -5,10 +5,6 @@
  */
 package com.actions;
 
-import com.Agent;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 /**
  *
  * @author Honza
@@ -16,37 +12,22 @@ import java.util.regex.Pattern;
 public class AckAction extends Action
 {
 
-    private final String PATTERN = "(ack)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)";
-    public AckAction(String prefix, int paramsLength, Agent agent)
+    private final String agentIp;
+    private final int agentPort;
+
+    public AckAction(String agentIp, int agentPort)
     {
-        super(prefix, paramsLength, agent);
+        super("ack", 0);
+        this.agentIp = agentIp;
+        this.agentPort = agentPort;
     }
 
     @Override
-    public void perform(String msg) throws Exception
+    public void perform(String senderIp, int senderPort, String msg) throws Exception
     {
-        Pattern p = Pattern.compile(PATTERN);
-        Matcher m = p.matcher(msg);
-        if (m.find() && m.groupCount() == getParamsLength() + 1)
-        {
-            String ip = m.group(2);
-            String portStr = m.group(3);
-            int port = 0;
-            try
-            {
-                port = Integer.parseInt(portStr);
-            }
-            catch (NumberFormatException e)
-            {
-                throw new Exception("Invalid port number");
-            }
-            getAgent().getAgentDb().addAgent(ip, port);
-            getAgent().displayMessage("ack from " + ip + " " + port);
-        }
-        else
-        {
-            throw new Exception("Invalid arguments for " + getPrefix() + " action");
-        }
+        String ackMsg = String.format("ack %s", msg);
+        System.out.println("ACK:" + ackMsg);
+        sendMessageToAddress(agentIp, agentPort, ackMsg, senderIp, senderPort);
     }
 
 }
