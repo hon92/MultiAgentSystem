@@ -17,17 +17,18 @@ public class AckAction extends Action
 
     public AckAction(String agentIp, int agentPort)
     {
-        super("ack", 0);
+        super("ack", 0, "", false);
         this.agentIp = agentIp;
         this.agentPort = agentPort;
     }
 
     @Override
-    public void perform(String senderIp, int senderPort, String msg) throws Exception
+    public ActionResult perform(String senderIp, int senderPort, String msg) throws Exception
     {
         String ackMsg = String.format("ack %s", msg);
-        System.out.println("ACK:" + ackMsg);
-        sendMessageToAddress(agentIp, agentPort, ackMsg, senderIp, senderPort);
+        //System.out.println("ACK:" + ackMsg);
+        boolean sended = sendMessageToAddress(agentIp, agentPort, ackMsg, senderIp, senderPort);
+        return new ActionResult(sended);
     }
 
 }

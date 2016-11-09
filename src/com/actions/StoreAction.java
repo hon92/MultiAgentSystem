@@ -6,8 +6,7 @@
 package com.actions;
 
 import com.Agent;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.List;
 
 /**
  *
@@ -15,32 +14,29 @@ import java.util.regex.Pattern;
  */
 public class StoreAction extends Action
 {
-    private final String PATTERN = "(store)\\s(.+)";
+
     private final Agent agent;
 
     public StoreAction(Agent agent)
     {
-        super("store", 1);
+        super("store", 1, "(store)\\s(.+)", false);
         this.agent = agent;
     }
 
     @Override
-    public void perform(String senderIp, int senderPort, String msg) throws Exception
+    public ActionResult perform(String senderIp, int senderPort, String msg) throws Exception
     {
-        Pattern p = Pattern.compile(PATTERN);
-        Matcher m = p.matcher(msg);
-        if (m.find() && m.groupCount() == getParamsLength() + 1)
+        List<String> parameters = getMessageParameters(msg);
+        if (parameters == null)
         {
-            String message = m.group(2);
-            agent.saveMessage(message);
-            String storeMsg = String.format("Agent '%s' push to store '%s'",
-                    agent.getName(), message);
-            agent.displayMessage(storeMsg, senderIp + ":" + senderPort);
+            return new ActionResult();
         }
-        else
-        {
-            throw new Exception("Invalid arguments for " + getPrefix() + " action");
-        }
+        String message = parameters.get(0);
+        agent.saveMessage(message);
+        String storeMsg = String.format("Agent '%s' push to store '%s'",
+                agent.getName(), message);
+        agent.displayMessage(storeMsg, senderIp + ":" + senderPort);
+        return new ActionResult(true);
     }
 
 }

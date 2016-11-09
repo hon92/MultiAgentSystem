@@ -53,4 +53,14 @@ public class AgentDb
             agentDb.add(newAgent);
         }
     }
+
+    public List<String> getAgentsList()
+    {
+        List<String> agents = new ArrayList<>();
+        for (AgentEntry ae : agentDb)
+        {
+            agents.add(String.format("%s:%d", ae.address, ae.port));
+        }
+        return agents;
+    }
 }

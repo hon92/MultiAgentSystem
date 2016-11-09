@@ -5,8 +5,7 @@
  */
 package com.actions;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.List;
 
 /**
  *
@@ -16,42 +15,27 @@ import java.util.regex.Pattern;
 //send ip port message
 public class SendAction extends Action
 {
-    private final String PATTERN = "(send)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)";
 
     public SendAction()
     {
-        super("send", 3);
+        super("send", 3, "(send)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)", false);
     }
 
     @Override
-    public void perform(String senderIp, int senderPort, String msg) throws Exception
+    public ActionResult perform(String senderIp, int senderPort, String msg) throws Exception
     {
-        Pattern p = Pattern.compile(PATTERN);
-        Matcher m = p.matcher(msg);
-        if (m.find() && m.groupCount() == getParamsLength() + 1)
+        List<String> parameters = getMessageParameters(msg);
+        if (parameters == null)
         {
-            String ip = m.group(2);
-            String portStr = m.group(3);
-            String message = m.group(4);
-            int port = 0;
-            try
-            {
-                port = Integer.parseInt(portStr);
-            }
-            catch (NumberFormatException e)
-            {
-                throw new Exception("Port number must be integer");
-            }
-            boolean sended = sendMessageToAddress(senderIp, senderPort, message, ip, port);
-            if (!sended)
-            {
-                throw new Exception("Cant send socket to address " + ip + ":" + portStr);
-            }
+            return new ActionResult();
         }
-        else
-        {
-            throw new Exception("Invalid arguments for " + getPrefix() + " action");
-        }
+
+        String ip = parameters.get(0);
+        String portStr = parameters.get(1);
+        String message = parameters.get(2);
+        int port = Integer.parseInt(portStr);
+        boolean sended = sendMessageToAddress(senderIp, senderPort, message, ip, port);
+        return new ActionResult(sended);
     }
 
 }

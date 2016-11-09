@@ -5,6 +5,10 @@
  */
 package com;
 
+import com.actions.AgentsAction;
+import com.actions.FileAction;
+import com.actions.OsAction;
+import com.actions.PackageAction;
 import com.actions.SendAction;
 import com.actions.SolveAction;
 import com.actions.StoreAction;
@@ -42,6 +46,28 @@ public class Window extends javax.swing.JFrame implements Observer
         agentsList.setModel(model);
         messageField.setText("");
         ipField.setText(getLocalIp());
+        //messageField.setText("send 192.168.2.102 8000 solve 192.168.2.102 8000 4+2");
+        messageField.setText("solve 192.168.2.102 8000 4+2");
+        //messageField.setText("package 192.168.2.102 8000 192.168.2.102 5000");
+        //messageField.setText("package 192.168.2.102 8000 D:\\file1.txt D:\\file2.txt");
+        //messageField.setText("package 192.168.2.102 8000 D:\\crazy_train.jpg");
+        //messageField.setText("file hash package 192.168.2.102 8000 D:\\file1.txt D:\\file2.txt");
+        //messageField.setText("send 192.168.2.102 8000 ahoj");
+        //messageField.setText("os");
+        try
+        {
+            addAgent("a", ipField.getText(), 5000);
+            addAgent("b", ipField.getText(), 8000);
+            addAgent("c", ipField.getText(), 10000);
+        }
+        catch (IOException ex)
+        {
+            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        catch (InterruptedException ex)
+        {
+            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     private String getLocalIp()
@@ -60,9 +86,18 @@ public class Window extends javax.swing.JFrame implements Observer
     private void addAgent(String name, String ip, int port) throws IOException, InterruptedException
     {
         Agent a = new Agent(name, port, ip);
+        String type = "windows";
+        if (name.equals("b"))
+        {
+            type = "linux";
+        }
         a.addAction(new SendAction());
         a.addAction(new StoreAction(a));
         a.addAction(new SolveAction());
+        a.addAction(new OsAction(type));
+        a.addAction(new AgentsAction(a));
+        a.addAction(new PackageAction(a, "C:\\Users\\Honza\\Documents\\NetBeansProjects\\MS"));
+        a.addAction(new FileAction());
 
         a.addObserver(this);
         a.start();

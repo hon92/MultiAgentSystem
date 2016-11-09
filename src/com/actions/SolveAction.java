@@ -6,8 +6,7 @@
 package com.actions;
 
 import com.ExpressionSolver;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.List;
 
 /**
  *
@@ -15,33 +14,29 @@ import java.util.regex.Pattern;
  */
 public class SolveAction extends Action
 {
-    private final String PATTERN = "(solve)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)";
     private final ExpressionSolver expressionSolver;
 
     public SolveAction()
     {
-        super("solve", 3);
+        super("solve", 3, "(solve)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)", true);
         expressionSolver = new ExpressionSolver();
     }
 
     @Override
-    public void perform(String senderIp, int senderPort, String msg) throws Exception
+    public ActionResult perform(String senderIp, int senderPort, String msg) throws Exception
     {
-        Pattern p = Pattern.compile(PATTERN);
-        Matcher m = p.matcher(msg);
-        if (m.find() && m.groupCount() == getParamsLength() + 1)
+        List<String> parameters = getMessageParameters(msg);
+        if (parameters == null)
         {
-            String ip = m.group(2);
-            String portStr = m.group(3);
-            String expression = m.group(4);
-            int port = Integer.parseInt(portStr);
-            String expressionResult = expressionSolver.evaluate(expression).toString();
-            sendMessageToAddress(senderIp, senderPort, expressionResult, ip, port);
+            return new ActionResult();
         }
-        else
-        {
-            throw new Exception("Invalid arguments for " + getPrefix() + " action");
-        }
+        String ip = parameters.get(0);
+        String portStr = parameters.get(1);
+        String expression = parameters.get(2);
+        int port = Integer.parseInt(portStr);
+        String expressionResult = expressionSolver.evaluate(expression).toString();
+        boolean sended = sendMessageToAddress(senderIp, senderPort, expressionResult, ip, port);
+        return new ActionResult(expressionResult, sended);
     }
 
 }
