@@ -14,11 +14,12 @@ import java.util.List;
  */
 public class SolveAction extends Action
 {
+
     private final ExpressionSolver expressionSolver;
 
     public SolveAction()
     {
-        super("solve", 3, "(solve)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)", true);
+        super("solve", 1, "(solve)\\s(.+)", true);
         expressionSolver = new ExpressionSolver();
     }
 
@@ -30,12 +31,9 @@ public class SolveAction extends Action
         {
             return new ActionResult();
         }
-        String ip = parameters.get(0);
-        String portStr = parameters.get(1);
-        String expression = parameters.get(2);
-        int port = Integer.parseInt(portStr);
+        String expression = parameters.get(0);
         String expressionResult = expressionSolver.evaluate(expression).toString();
-        boolean sended = sendMessageToAddress(senderIp, senderPort, expressionResult, ip, port);
+        boolean sended = sendMessageToAddress(senderIp, senderPort, expressionResult, senderIp, senderPort);
         return new ActionResult(expressionResult, sended);
     }
 

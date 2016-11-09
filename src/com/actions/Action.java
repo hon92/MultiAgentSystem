@@ -10,8 +10,6 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
-import java.nio.ByteBuffer;
-import java.nio.channels.DatagramChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -30,7 +28,7 @@ public abstract class Action
     private final int paramsLength;
     private final String regex;
     private final boolean hasResult;
-    private static int MSG_INDEX = 0;
+    //private static int MSG_INDEX = 0;
 
     public Action(String prefix, int paramsLength, String regex, boolean hasResult)
     {
@@ -86,21 +84,20 @@ public abstract class Action
         //ByteBuffer buffer = ByteBuffer.wrap(m.getBytes());
         //byte i = new Integer(MSG_INDEX).byteValue();
         //buffer.put(i);
-        MSG_INDEX++;
+        //MSG_INDEX++;
 
-        ByteBuffer receiveBuffer = ByteBuffer.allocate(1024);
+        //ByteBuffer receiveBuffer = ByteBuffer.allocate(1024);
         //byte[] bytes = new byte[buffer.limit()];
         //buffer.get(bytes, 0, buffer.limit());
-
         byte[] msgBytes = m.getBytes();
-        byte index = new Integer(MSG_INDEX).byteValue();
-        MSG_INDEX++;
-        byte[] sendBytes = new byte[msgBytes.length + 1];
-        System.arraycopy(msgBytes, 0, sendBytes, 0, msgBytes.length);
-        sendBytes[msgBytes.length] = index;
+        //byte index = new Integer(MSG_INDEX).byteValue();
+        //MSG_INDEX++;
+        //byte[] sendBytes = new byte[msgBytes.length + 1];
+        //System.arraycopy(msgBytes, 0, sendBytes, 0, msgBytes.length);
+        //sendBytes[msgBytes.length] = index;
 
         byte[] receiveBytes = new byte[1024];
-        int receivedBytes = sendReceive(targetIp, targetPort, sendBytes, receiveBytes);
+        int receivedBytes = sendReceive(targetIp, targetPort, msgBytes, receiveBytes);
         if (receivedBytes != -1)
         {
             byte[] finalReceivedBytes = new byte[receivedBytes];
@@ -178,40 +175,10 @@ public abstract class Action
 //        }
     }
 
-    protected boolean sendData(String sourceIp, int sourcePort, String targetIp, int targetPort, byte[] data)
-    {
-        DatagramChannel channel = null;
-        try
-        {
-            channel = DatagramChannel.open();
-            channel.bind(null);
-            ByteBuffer buffer = ByteBuffer.wrap(data);
-            channel.send(buffer, new InetSocketAddress(targetIp, targetPort));
-            return true;
-        }
-        catch (IOException ex)
-        {
-            return false;
-        }
-        finally
-        {
-            if (channel != null)
-            {
-                try
-                {
-                    channel.close();
-                }
-                catch (IOException ex)
-                {
-                    Logger.getLogger(Action.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        }
-    }
-
     private int sendReceive(String targetIp, int targetPort, byte[] sendBytes, byte[] receiveBytes)
     {
-        final int RESEND_COUNT = 100;
+        final int RESEND_COUNT = 2;
+        final int TIMEOUT = 100;
         int currentResendCount = 0;
 
         try
@@ -223,16 +190,15 @@ public abstract class Action
 
             while (true)
             {
-
                 DatagramPacket dp = new DatagramPacket(receiveBytes, receiveBytes.length);
                 try
                 {
-                    datagramSocket.setSoTimeout(100);
+                    datagramSocket.setSoTimeout(TIMEOUT);
                     datagramSocket.receive(dp);
                     System.out.println("receive data");
                     if (sendBytes[sendBytes.length - 1] == dp.getData()[dp.getLength() - 1])
                     {
-                        return dp.getLength() - 1;
+                        return dp.getLength();
                     }
 
                 }

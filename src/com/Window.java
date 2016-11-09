@@ -46,8 +46,9 @@ public class Window extends javax.swing.JFrame implements Observer
         agentsList.setModel(model);
         messageField.setText("");
         ipField.setText(getLocalIp());
-        //messageField.setText("send 192.168.2.102 8000 solve 192.168.2.102 8000 4+2");
-        messageField.setText("solve 192.168.2.102 8000 4+2");
+        String ip = getLocalIp();
+        messageField.setText("send " + ip + " 8000 send " + ip + " 10000 " + "solve " + "4+2");
+        //messageField.setText("solve 192.168.2.102 8000 4+2");
         //messageField.setText("package 192.168.2.102 8000 192.168.2.102 5000");
         //messageField.setText("package 192.168.2.102 8000 D:\\file1.txt D:\\file2.txt");
         //messageField.setText("package 192.168.2.102 8000 D:\\crazy_train.jpg");

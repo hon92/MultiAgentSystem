@@ -171,7 +171,7 @@ public class Agent extends Observable
     private void handleAction(Action action, String senderIp, int senderPort, String senderMessage) throws Exception
     {
         ActionResult ar = action.perform(senderIp, senderPort, senderMessage);
-        
+
         if (ar.isPerformed())
         {
             if (ar.hasResult())
@@ -340,19 +340,29 @@ public class Agent extends Observable
                 {
                     ByteBuffer buffer = ByteBuffer.allocate(1024);
                     SocketAddress socketAddress = serverChannel.receive(buffer);
-
-                    //Thread.sleep(2000);
                     buffer.flip();
 
-                    byte[] bufferData = new byte[buffer.limit() - 1];
-                    buffer.get(bufferData, 0, buffer.limit() - 1);
-                    byte indexByte = buffer.get(buffer.limit() - 1);
-                    buffer.clear();
-                    buffer.put("ack ".getBytes());
-                    buffer.put(bufferData);
-                    buffer.put(indexByte);
-                    buffer.flip();
-                    serverChannel.send(buffer, socketAddress);
+                    byte[] bufferData = new byte[buffer.limit()];
+                    buffer.get(bufferData, 0, buffer.limit());
+                    List<String> receiveParams = getSenderParameters(new String(bufferData));
+                    if (receiveParams == null)
+                    {
+                        continue;
+                    }
+                    String senderMessage = receiveParams.get(2);
+
+                    //String ackMessage = String.format("%s:%d ack %s", getIp(), getPort(), senderMessage);
+                    String ackMessage = "ack " + senderMessage;
+
+                    //byte[] bufferData = new byte[buffer.limit() - 1];
+                    //buffer.get(bufferData, 0, buffer.limit() - 1);
+                    //byte indexByte = buffer.get(buffer.limit() - 1);
+                    //buffer.clear();
+                    //buffer.put("ack ".getBytes());
+                    //buffer.put(bufferData);
+                    //buffer.put(indexByte);
+                    //buffer.flip();
+                    serverChannel.send(ByteBuffer.wrap(ackMessage.getBytes()), socketAddress);
                     messages.put(new String(bufferData));
 //                    if (buffer.limit() == 0)
 //                    {
