@@ -12,15 +12,22 @@ package com.actions;
 public class KnowledgeAction extends Action
 {
 
-    public KnowledgeAction(String prefix, int paramsLength, String regex, boolean hasResult)
+    public KnowledgeAction(String prefix)
     {
-        super(prefix, paramsLength, regex, hasResult);
+        super(prefix);
     }
 
     @Override
-    public ActionResult perform(String sourceIp, int sourcePort, String message) throws Exception
+    public ActionResult perform(String message)
     {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+
+    @Override
+    public void performAck(String ip, int port, String message)
+    {
+        System.out.println("not implemented perform ack from knowledge command");
+    }
+
 
 }

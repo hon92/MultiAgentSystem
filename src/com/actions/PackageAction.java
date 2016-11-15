@@ -5,26 +5,17 @@
  */
 package com.actions;
 
-import com.Agent;
-import java.io.ByteArrayInputStream;
+import com.FileComposer;
+import com.Parameter;
+import com.Part;
+import com.util.Util;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
-import javax.xml.bind.DatatypeConverter;
+import java.util.Map;
 
 /**
  *
@@ -33,196 +24,198 @@ import javax.xml.bind.DatatypeConverter;
 public class PackageAction extends Action
 {
 
-    private final Agent agent;
-    private final String filesRegex = "(package)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)";
-    private final String projectPath;
-    private final String HASHING_ALGORITHM = "MD5";
+    private final String projectFile;
+    private final Map<String, FileComposer> files;
 
-    public PackageAction(Agent agent, String projectPath)
+    public PackageAction(String projectFile)
     {
-        super("package", 4, "(package)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)", true);
-        this.agent = agent;
-        this.projectPath = projectPath;
-    }
+        super("package");
+        this.projectFile = projectFile;
+        files = new HashMap<>();
 
-    @Override
-    public ActionResult perform(String senderIp, int senderPort, String msg) throws Exception
-    {
-        List<String> params = getMessageParameters(msg);
-        if (params == null)
+        addNextParameter(new Parameter<PackageAction>(4, "(package)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)", this)
         {
-            params = getFilesMessageParameters(msg);
-            if (params == null)
+            @Override
+            public ActionResult doAction(PackageAction sourceAction, List<String> arguments)
             {
-                return new ActionResult();
+                return sourceAction.performSendProject(arguments);
             }
-            else
+
+            @Override
+            public boolean precondition(List<String> arguments)
             {
-                return performSendFiles(senderIp, senderPort, params);
+                String sourceIp = arguments.get(2);
+                int sourcePort = Integer.parseInt(arguments.get(3));
+                return sourceIp.equals(agent.getIp()) && sourcePort == agent.getPort();
             }
-        }
-        return performSendProject(senderIp, senderPort, params);
-    }
+        });
 
-    private List<String> getFilesMessageParameters(String message)
-    {
-        Pattern p = Pattern.compile(filesRegex);
-        Matcher m = p.matcher(message);
-        final int paramsLength = 3;
-
-        if (m.find() && m.groupCount() == paramsLength + 1)
+        addNextParameter(new Parameter<PackageAction>(8, "(package)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(\\d+)/(\\d+)\\s(.+)\\s(.+)\\s(\\d+)\\s(.+)", this)
         {
-            List<String> parameters = new ArrayList<>();
-            for (int i = 2; i < paramsLength + 2; i++)
+            @Override
+            public ActionResult doAction(PackageAction sourceAction, List<String> arguments)
             {
-                parameters.add(m.group(i));
+                return performFilePart(arguments);
             }
-            return parameters;
-        }
-        return null;
-    }
+        });
 
-    private ActionResult performSendProject(String senderIp, int senderPort, List<String> params)
+        addNextParameter(new Parameter<PackageAction>(3, "(package)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)", this)
+        {
+            @Override
+            public ActionResult doAction(PackageAction sourceAction, List<String> arguments)
+            {
+                return sourceAction.performSendFiles(arguments);
+            }
+        });
+
+    }
+    
+    private String getFilePrefix()
     {
-        boolean sended = false;
-        return new ActionResult(sended);
+        return agent.getIp() + "-" + agent.getPort();
     }
 
-    private ActionResult performSendFiles(String senderIp, int senderPort, List<String> params) throws IOException
+    private ActionResult performSendProject(List<String> params)
+    {
+        File zipFile = Util.createZipFile(new File(projectFile));
+        if (zipFile == null)
+        {
+            return new ActionResult();
+        }
+        List<String> parts = prepareFileParts(zipFile);
+        if (parts == null)
+        {
+            return new ActionResult();
+        }
+        String targetIp = params.get(0);
+        int targetPort = Integer.parseInt(params.get(1));
+        for (String part : parts)
+        {
+            sendMessageToAddress(agent.getIp(), agent.getPort(), part, targetIp, targetPort);
+        }
+        return new ActionResult(true);
+    }
+
+    private ActionResult performSendFiles(List<String> params)
     {
         String filesString = params.get(2);
         String[] filesNames = filesString.split(" ");
-        String targetIp = params.get(0);
-        int targetPort = Integer.parseInt(params.get(1));
+        List<String> allParts = new ArrayList<>();
+
         for (String filename : filesNames)
         {
-            File zipFile = createZipFile(new File(filename));
+            File zipFile = Util.createZipFile(new File(filename));
             if (zipFile != null)
             {
-                String hashZipFile = getHash(zipFile);
-                if (!hashZipFile.equals(""))
+                String zipFilename = zipFile.getName();
+                String nameWithoutZip = zipFilename.substring(0, zipFilename.length() - 4);
+                List<String> parts = prepareFileParts(zipFile);
+                if (parts == null)
                 {
-                    System.out.println("zip file " + filename + " " + zipFile.length() + " " + hashZipFile);
-                    String dataMsg = new String(Files.readAllBytes(Paths.get(zipFile.getAbsolutePath())));
-                    String fileMessage = "file " + hashZipFile + " " + dataMsg;
-                    boolean sended = sendMessageToAddress(senderIp, senderPort, fileMessage, targetIp, targetPort);
-                    return new ActionResult(sended);
+                    System.err.println(filename + " was skipped due to error");
+                    continue;
                 }
+                allParts.addAll(parts);
             }
             else
             {
-                System.err.println("zip file null " + filename);
+                System.err.println(filename + " cant be converted to zip");
             }
         }
-        return new ActionResult();
-    }
-
-    private File createZipFile(File file)
-    {
-        if (file.exists() && file.isFile())
+        String targetIp = params.get(0);
+        int targetPort = Integer.parseInt(params.get(1));
+        for (String part : allParts)
         {
-            int dotIndex = file.getAbsolutePath().indexOf(".");
-            String zipFilename = file.getAbsolutePath().substring(0, dotIndex) + ".zip";
-            File resultZipFile = new File(zipFilename);
-            try
-            {
-                try (FileInputStream fis = new FileInputStream(file))
-                {
-                    try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(resultZipFile)))
-                    {
-                        ZipEntry zipEntry = new ZipEntry(file.getName());
-                        zos.putNextEntry(zipEntry);
-                        byte[] buffer = new byte[1024];
-                        int readBytes = 0;
-                        while ((readBytes = fis.read(buffer)) > 0)
-                        {
-                            zos.write(buffer, 0, readBytes);
-                            zos.flush();
-                        }
-                        zos.closeEntry();
-                        return resultZipFile;
-                    }
-                }
-            }
-            catch (FileNotFoundException ex)
-            {
-                Logger.getLogger(PackageAction.class.getName()).log(Level.SEVERE, null, ex);
-                return null;
-            }
-            catch (IOException ex)
-            {
-                Logger.getLogger(PackageAction.class.getName()).log(Level.SEVERE, null, ex);
-                return null;
-            }
+            sendMessageToAddress(agent.getIp(), agent.getPort(), part, targetIp, targetPort);
         }
-        return null;
+        return new ActionResult(true);
     }
 
-    private String getHash(File file)
+    private ActionResult performFilePart(List<String> params)
     {
+        String sourceIp = params.get(0);
+        int sourcePort = Integer.parseInt(params.get(1));
+        int currentPart = Integer.parseInt(params.get(2));
+        int parts = Integer.parseInt(params.get(3));
+        String hash = params.get(4);
+        String id = params.get(5);
+        int size = Integer.parseInt(params.get(6));
+        byte[] data = Util.decodeString(params.get(7));
+
+        String k = sourceIp + ":" + sourcePort + ":" + hash;
+        FileComposer myFile = files.get(k);
+
+        if (myFile == null)
+        {
+            myFile = new FileComposer(sourceIp, sourcePort, parts, hash, id);
+            files.put(k, myFile);
+        }
+
+        System.out.println("Receiving " + id + " " + currentPart + "/" + parts);
+        myFile.addPart(new Part(currentPart, size, data));
+
+        if (myFile.isComplete())
+        {
+            boolean success = myFile.writeAndCheck(agent.getFilesFolderPath());
+            if (success)
+            {
+                System.out.println("File " + id + " was corretly received");
+                files.remove(k);
+            }
+            else
+            {
+                System.err.println("File " + id + " is corrupted");
+            }
+        }
+        return new ActionResult("RECEIVED", true);
+    }
+
+    private List<String> prepareFileParts(File file)
+    {
+        if (!file.exists())
+        {
+            return null;
+        }
+        final int BUFFER_SIZE = 4096;
+        long fileLegth = file.length();
+        int parts = ((int) fileLegth / BUFFER_SIZE) + ((int) fileLegth % BUFFER_SIZE > 0 ? 1 : 0);
+        String fileHash = Util.getHash(file);
+        if (fileHash.equals(""))
+        {
+            return null;
+        }
+
+        String id = file.getName();
+        List<String> allParts = new ArrayList<>(parts);
+
         try (FileInputStream fis = new FileInputStream(file))
         {
-            MessageDigest md = MessageDigest.getInstance(HASHING_ALGORITHM);
-            md.update(Files.readAllBytes(Paths.get(file.getAbsolutePath())));
-            byte[] hashBytes = md.digest();
-            String digestInHex = DatatypeConverter.printHexBinary(hashBytes).toUpperCase();
-            return digestInHex;//System.out.println(digestInHex);
-            //return new BigInteger(1, hashBytes).toString(16);
-        }
-        catch (Exception ex)
-        {
-            return "";
-        }
-    }
+            int readed = 0;
+            byte[] buffer = new byte[BUFFER_SIZE];
 
-    private byte[] getZipFileBytes(String filename)
-    {
-        try
-        {
-            byte[] bytes = Files.readAllBytes(Paths.get(filename));
-            ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-            ZipInputStream zis = new ZipInputStream(bais);
-            int bytesRead = 0;
-            byte[] buffer = new byte[1024];
-            FileOutputStream fos = new FileOutputStream(new File("result.txt"));
-            ZipEntry zipEntry;
-            while ((zipEntry = zis.getNextEntry()) != null)
+            int index = 1;
+            while ((readed = fis.read(buffer)) != -1)
             {
-                String name = zipEntry.getName();
-                if (!zipEntry.isDirectory())
-                {
-                    while ((bytesRead = zis.read(buffer)) != -1)
-                    {
-                        fos.write(buffer, 0, bytesRead);
-                    }
-                }
+                byte[] bytesToEncode = new byte[readed];
+                System.arraycopy(buffer, 0, bytesToEncode, 0, readed);
+                String encodedString = Util.encodeBytes(bytesToEncode);
+                String part = String.format("package %s %d %d/%d %s %s %d %s",
+                        agent.getIp(),
+                        agent.getPort(),
+                        index++,
+                        parts,
+                        fileHash,
+                        id,
+                        readed,
+                        encodedString);
+                allParts.add(part);
             }
-
-            zis.close();
-            fos.close();
-//            while ((entry = zis.getNextEntry()) != null)
-//            {
-//                entry.getName();
-
-//                String entryName = zipEntry.getName();
-//                FileOutputStream out = new FileOutputStream(entryName);
-//                byte[] byteBuff = new byte[1024];
-//                int bytesRead = 0;
-//                while ((bytesRead = zis.read(byteBuff)) != -1)
-//                {
-//                    out.write(byteBuff, 0, bytesRead);
-//                }
-//
-//                out.close();
-//                zis.closeEntry();
-//            }
-            zis.close();
-            return bytes;
+            return allParts;
         }
         catch (IOException ex)
         {
-            Logger.getLogger(PackageAction.class.getName()).log(Level.SEVERE, null, ex);
             return null;
         }
     }
+
 }

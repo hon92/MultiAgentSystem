@@ -5,26 +5,53 @@
  */
 package com.actions;
 
+import com.Parameter;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  *
  * @author Honza
  */
 public class OsAction extends Action
 {
-
     private final String type;
 
     public OsAction(String type)
     {
-        super("os", 0, "", true);
+        super("os");
         this.type = type;
+        addNextParameter(new Parameter<OsAction>(0, "(os)", this)
+        {
+            @Override
+            public ActionResult doAction(OsAction sourceAction, List<String> arguments)
+            {
+                return performSendOsType();
+            }
+
+        });
+    }
+
+    private ActionResult performSendOsType()
+    {
+        String ip = agent.getIp();
+        int port = agent.getPort();
+        boolean sended = sendMessageToAddress(ip, port, type, ip, port);
+        return new ActionResult(type, sended);
     }
 
     @Override
-    public ActionResult perform(String senderIp, int senderPort, String msg) throws Exception
+    public void performAck(String ip, int port, String message)
     {
-        boolean sended = sendMessageToAddress(senderIp, senderPort, type, senderIp, senderPort);
-        return new ActionResult(type, sended);
+        Pattern p = Pattern.compile("(ack)\\s\"(.+)\"\\s(.+)");
+        Matcher m = p.matcher(message);
+        if (m.find() && m.groupCount() == 3)
+        {
+            String osMsg = m.group(2);
+            String res = m.group(3);
+            agent.storeMessage(osMsg + " " + res);
+        }
     }
 
 }

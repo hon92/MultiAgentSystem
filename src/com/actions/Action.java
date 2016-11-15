@@ -5,17 +5,15 @@
  */
 package com.actions;
 
+import com.Agent;
+import com.Parameter;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  *
@@ -23,36 +21,38 @@ import java.util.regex.Pattern;
  */
 public abstract class Action
 {
-
     private final String prefix;
-    private final int paramsLength;
-    private final String regex;
-    private final boolean hasResult;
-    //private static int MSG_INDEX = 0;
+    protected Agent agent;
+    protected Parameter parameter;
+    private Parameter lastParameter;
 
-    public Action(String prefix, int paramsLength, String regex, boolean hasResult)
+    public Action(String prefix)
     {
         this.prefix = prefix;
-        this.paramsLength = paramsLength;
-        this.regex = regex;
-        this.hasResult = hasResult;
     }
 
-    public List<String> getMessageParameters(String message)
+    protected final void addNextParameter(Parameter parameter)
     {
-        Pattern p = Pattern.compile(regex);
-        Matcher m = p.matcher(message);
-
-        if (m.find() && m.groupCount() == getParamsLength() + 1)
+        if (this.parameter == null)
         {
-            List<String> parameters = new ArrayList<>();
-            for (int i = 2; i < getParamsLength() + 2; i++)
-            {
-                parameters.add(m.group(i));
-            }
-            return parameters;
+            this.parameter = parameter;
+            lastParameter = parameter;
         }
-        return null;
+        else
+        {
+            lastParameter.setNext(parameter);
+            lastParameter = parameter;
+        }
+    }
+
+    public void setAgent(Agent agent)
+    {
+        this.agent = agent;
+    }
+
+    public Agent getAgent()
+    {
+        return agent;
     }
 
     public String getPrefix()
@@ -60,17 +60,67 @@ public abstract class Action
         return prefix;
     }
 
-    public int getParamsLength()
+    public final void handle(String receiverIp, int receiverPort, String message)
     {
-        return paramsLength;
+        ActionResult actionResult;
+        if (parameter == null)
+        {
+            actionResult = new ActionResult();
+        }
+        else
+        {
+            actionResult = perform(message);
+        }
+
+        if (actionResult.isPerformed())
+        {
+            response(receiverIp, receiverPort, message, actionResult);
+        }
     }
 
-    public boolean hasResult()
+    public void response(String receiverIp, int receiverPort, String message, ActionResult actionResult)
     {
-        return hasResult;
+        if (actionResult.hasResult())
+        {
+            new Thread(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    for (String resultMsg : actionResult.getResultMessages())
+                    {
+                        try
+                        {
+                            Thread.sleep(3);
+                        }
+                        catch (InterruptedException ex)
+                        {
+                            Logger.getLogger(Action.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                        sendResultAckMessage(agent.getIp(), agent.getPort(), message, resultMsg, receiverIp, receiverPort);
+                    }
+                }
+            }, "UDP-sendingThread").start();
+        }
+        else
+        {
+            sendAckMessage(agent.getIp(), agent.getPort(), receiverIp, receiverPort, message);
+        }
     }
 
-    public abstract ActionResult perform(String sourceIp, int sourcePort, String message) throws Exception;
+    public ActionResult perform(String message)
+    {
+        if (parameter == null)
+        {
+            return new ActionResult();
+        }
+        return parameter.match(message);
+    }
+
+    public void performAck(String ip, int port, String message)
+    {
+        System.out.println("perform ack in action " + getPrefix());
+    }
 
     protected boolean sendMessageToAddress(String sourceIp,
             int sourcePort,
@@ -78,101 +128,21 @@ public abstract class Action
             String targetIp,
             int targetPort)
     {
-//        try
-//        {
         String m = String.format("%s:%d %s", sourceIp, sourcePort, message);
-        //ByteBuffer buffer = ByteBuffer.wrap(m.getBytes());
-        //byte i = new Integer(MSG_INDEX).byteValue();
-        //buffer.put(i);
-        //MSG_INDEX++;
-
-        //ByteBuffer receiveBuffer = ByteBuffer.allocate(1024);
-        //byte[] bytes = new byte[buffer.limit()];
-        //buffer.get(bytes, 0, buffer.limit());
         byte[] msgBytes = m.getBytes();
-        //byte index = new Integer(MSG_INDEX).byteValue();
-        //MSG_INDEX++;
-        //byte[] sendBytes = new byte[msgBytes.length + 1];
-        //System.arraycopy(msgBytes, 0, sendBytes, 0, msgBytes.length);
-        //sendBytes[msgBytes.length] = index;
 
-        byte[] receiveBytes = new byte[1024];
-        int receivedBytes = sendReceive(targetIp, targetPort, msgBytes, receiveBytes);
-        if (receivedBytes != -1)
+        try (DatagramSocket datagramSocket = new DatagramSocket())
         {
-            byte[] finalReceivedBytes = new byte[receivedBytes];
-            System.arraycopy(receiveBytes, 0, finalReceivedBytes, 0, receivedBytes);
-            System.out.println("delivered:" + new String(finalReceivedBytes));
+            DatagramPacket datagramPacket = new DatagramPacket(msgBytes, msgBytes.length,
+                    new InetSocketAddress(targetIp, targetPort));
+            datagramSocket.send(datagramPacket);
             return true;
         }
-        else
+        catch (IOException ex)
         {
+            ex.printStackTrace();
             return false;
         }
-
-//            final DatagramChannel channel = DatagramChannel.open();
-//            channel.bind(null);
-//            String m = String.format("%s:%d %s", sourceIp, sourcePort, message);
-//            Integer index = this.MSG_INDEX;
-//            int msgLen = m.getBytes().length;
-//            byte[] sendBytes = new byte[msgLen + 1];
-//            byte[] msgBytes = m.getBytes();
-//            for (int i = 0; i < msgLen; i++)
-//            {
-//                sendBytes[i] = msgBytes[i];
-//            }
-//            sendBytes[msgLen] = index.byteValue();
-//            ByteBuffer buffer = ByteBuffer.wrap(sendBytes);
-//            System.out.println("sending: " + new String(msgBytes) + " number " + index);
-//            channel.send(buffer, new InetSocketAddress(targetIp, targetPort));
-//            boolean waiting = true;
-//
-//            Timer timer = new Timer(10, new ActionListener()
-//            {
-//                @Override
-//                public void actionPerformed(ActionEvent e)
-//                {
-//                    try
-//                    {
-//                        //resend
-//                        if (index < MSG_INDEX)
-//                        {
-//                            System.out.println("resend: " + new String(msgBytes) + " number " + index);
-//                            channel.send(buffer, new InetSocketAddress(targetIp, targetPort));
-//                        }
-//                    }
-//                    catch (IOException ex)
-//                    {
-//                        Logger.getLogger(Action.class.getName()).log(Level.SEVERE, null, ex);
-//                    }
-//                }
-//            });
-//            timer.start();
-//
-//            ByteBuffer b = ByteBuffer.allocate(1024);
-//            channel.receive(b);
-//            timer.stop();
-//            b.flip();
-//            byte indexByte = b.get(b.limit() - 1);
-//            if (index == (int) indexByte)
-//            {
-//                System.out.println("accepted ack for number " + index);
-//                MSG_INDEX++;
-//            }
-//            else
-//            {
-//                return false;
-//            }
-//            byte[] bytes = new byte[b.limit() - 1];
-//            b.get(bytes, 0, b.limit() - 1);
-//            System.out.println("received: " + new String(bytes));
-//            channel.close();
-//            return true;
-//        }
-//        catch (IOException ex)
-//        {
-//            return false;
-//        }
     }
 
     private int sendReceive(String targetIp, int targetPort, byte[] sendBytes, byte[] receiveBytes)
@@ -195,16 +165,13 @@ public abstract class Action
                 {
                     datagramSocket.setSoTimeout(TIMEOUT);
                     datagramSocket.receive(dp);
-                    System.out.println("receive data");
                     if (sendBytes[sendBytes.length - 1] == dp.getData()[dp.getLength() - 1])
                     {
                         return dp.getLength();
                     }
-
                 }
                 catch (SocketTimeoutException ex)
                 {
-                    System.out.println("TIMEOUT");
                     currentResendCount++;
                     if (currentResendCount >= RESEND_COUNT)
                     {
@@ -220,5 +187,25 @@ public abstract class Action
             Logger.getLogger(Action.class.getName()).log(Level.SEVERE, null, ex);
             return -1;
         }
+    }
+
+    public boolean sendAckMessage(String sourceIp,
+            int sourcePort,
+            String targetIp,
+            int targetPort,
+            String message)
+    {
+        return sendMessageToAddress(sourceIp, sourcePort, "ack " + message, targetIp, targetPort);
+    }
+
+    public boolean sendResultAckMessage(String sourceIp,
+            int sourcePort,
+            String message,
+            String result,
+            String targetIp,
+            int targetPort)
+    {
+        String msg = String.format("\"%s\" %s", message, result);
+        return sendAckMessage(sourceIp, sourcePort, targetIp, targetPort, msg);
     }
 }

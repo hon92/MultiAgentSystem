@@ -6,7 +6,10 @@
 package com.actions;
 
 import com.ExpressionSolver;
+import com.Parameter;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  *
@@ -19,22 +22,36 @@ public class SolveAction extends Action
 
     public SolveAction()
     {
-        super("solve", 1, "(solve)\\s(.+)", true);
+        super("solve");
         expressionSolver = new ExpressionSolver();
+        addNextParameter(new Parameter<SolveAction>(1, "(solve)\\s(.+)", this)
+        {
+            @Override
+            public ActionResult doAction(SolveAction sourceAction, List<String> arguments)
+            {
+                return performSolve(arguments);
+            }
+        });
     }
 
     @Override
-    public ActionResult perform(String senderIp, int senderPort, String msg) throws Exception
+    public void performAck(String ip, int port, String message)
     {
-        List<String> parameters = getMessageParameters(msg);
-        if (parameters == null)
+        Pattern p = Pattern.compile("(ack)\\s\"(.+)\"\\s(.+)");
+        Matcher m = p.matcher(message);
+        if (m.find() && m.groupCount() == 3)
         {
-            return new ActionResult();
+            String solveMsg = m.group(2);
+            String res = m.group(3);
+            agent.storeMessage(solveMsg + " " + res);
         }
-        String expression = parameters.get(0);
+    }
+
+    private ActionResult performSolve(List<String> params)
+    {
+        String expression = params.get(0);
         String expressionResult = expressionSolver.evaluate(expression).toString();
-        boolean sended = sendMessageToAddress(senderIp, senderPort, expressionResult, senderIp, senderPort);
-        return new ActionResult(expressionResult, sended);
+        return new ActionResult(expressionResult, true);
     }
 
 }

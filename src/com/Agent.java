@@ -8,16 +8,15 @@ package com;
 import com.actions.AckAction;
 import com.actions.Action;
 import com.actions.ActionResult;
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Observable;
-import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.logging.Level;
@@ -33,7 +32,12 @@ public class Agent extends Observable
 {
 
     private static final String MSG_PATTERN = "(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3}):(\\d+)\\s(.+)";
-    private String state;
+    private static final String ACK_MESSAGE = "(ack)\\s(.+)";
+    private static final String RESULT_ACK_MESSAGE = "(ack)\\s\"(.+)\"\\s(.+)";
+    private static final String FILE_FOLDER_NAME = "ReceivedFiles";
+
+    private final Pattern ackPattern = Pattern.compile(ACK_MESSAGE);
+    private final Pattern resultAckPattern = Pattern.compile(RESULT_ACK_MESSAGE);
     private final AgentDb agentsDb;
     private DatagramChannel serverChannel;
     private final String name;
@@ -44,8 +48,8 @@ public class Agent extends Observable
     private boolean running = false;
     private final BlockingQueue<String> messages = new ArrayBlockingQueue<>(1000);
     private final List<Action> availableActions = new ArrayList<>();
-    private final List<String> savedMessages = new ArrayList<>();
-    private final Queue<AckMessage> waitingMessages = new ArrayDeque<>();
+    private final List<String> storedMessages = new ArrayList<>();
+    private final List<String> knowledges = new ArrayList<>();
 
     public Agent(String name, int port, String ip)
     {
@@ -53,21 +57,21 @@ public class Agent extends Observable
         this.port = port;
         this.ip = ip;
         this.agentsDb = new AgentDb();
-        setState("init");
+        File filesFolder = new File(getFilesFolderPath());
+        if (!filesFolder.exists())
+        {
+            filesFolder.mkdir();
+        }
     }
 
-    public boolean isRunning()
+    public String getFilesFolderPath()
     {
-        return running;
-    }
-
-    private void setState(String newState)
-    {
-        this.state = newState;
+        return FILE_FOLDER_NAME + "-" + getIp() + "-" + getPort();
     }
 
     public void addAction(Action action)
     {
+        action.setAgent(this);
         availableActions.add(action);
     }
 
@@ -128,8 +132,6 @@ public class Agent extends Observable
 
     public void see(String msg)
     {
-        System.err.println(getName() + ":" + msg);
-
         List<String> params = getSenderParameters(msg);
         if (params == null)
         {
@@ -143,6 +145,11 @@ public class Agent extends Observable
         String prefix = params.get(3);
         int senderPortNumber = Integer.parseInt(senderPort);
 
+        String debugSeeStr = String.format("%s from %s: %s",
+                getName() + ":" + getPort(), senderIp + ":" + senderPort,
+                senderMessage);
+
+        //System.err.println(debugSeeStr);
         try
         {
             if (prefix.equals("ack"))
@@ -158,8 +165,7 @@ public class Agent extends Observable
             else
             {
                 displayMessage(senderMessage, senderIp + ":" + senderPort);
-                //checkAckMessage(new AckMessage(senderMessage, senderIp, senderPortNumber, senderMessage, System.currentTimeMillis()));
-                //sendAck(senderIp, senderPortNumber, senderMessage);
+                sendAck(senderIp, senderPortNumber, senderMessage);
             }
         }
         catch (Exception ex)
@@ -168,94 +174,43 @@ public class Agent extends Observable
         }
     }
 
-    private void handleAction(Action action, String senderIp, int senderPort, String senderMessage) throws Exception
+    private void handleAction(Action action, String receiverIp, int receiverPort, String senderMessage)
     {
-        ActionResult ar = action.perform(senderIp, senderPort, senderMessage);
-
-        if (ar.isPerformed())
-        {
-            if (ar.hasResult())
-            {
-                displayMessage("ack \"" + senderMessage + "\" " + ar.getResultMessage(), senderIp + ":" + senderPort);
-                //System.out.println(getName() + " waiting for result ack:" + ar.getResultMessage());
-                //waitingMessages.add(new AckMessage(senderMessage, senderIp, senderPort, ar.getResultMessage(), System.currentTimeMillis()));
-                //sendResultAck(senderIp, senderPort, senderMessage, ar.getResultMessage());
-            }
-            else
-            {
-                displayMessage("ack " + senderMessage, senderIp + ":" + senderPort);
-                //System.out.println(getName() + " waiting for ack:" + "ack " + senderMessage);
-                //waitingMessages.add(new AckMessage(senderMessage, senderIp, senderPort, senderMessage, System.currentTimeMillis()));
-                //sendAck(senderIp, senderPort, senderMessage);
-            }
-        }
-        else
-        {
-            System.err.println("Action result error");
-        }
-
-//        if (action.hasResult())
-//        {
-//            waitingMessages.add(new AckMessage(senderMessage, senderIp, senderPort, "window", System.currentTimeMillis()));
-//            sendResultAck(senderIp, senderPort, senderMessage, "window");
-//        }
-//        else
-//        {
-//            waitingMessages.add(new AckMessage(senderMessage, senderIp, senderPort, "", System.currentTimeMillis()));
-//            sendAck(senderIp, senderPort, senderMessage);
-//        }
+        action.handle(receiverIp, receiverPort, senderMessage);
     }
 
     private void handleAck(String senderIp, int senderPort, String senderMessage) throws Exception
     {
-        String resultMsgRegex = "(ack)\\s\"(.+)\"\\s(.+)";
-        final int paramLength = 2;
-        Pattern pa = Pattern.compile(resultMsgRegex);
-        Matcher ma = pa.matcher(senderMessage);
+        Matcher m = ackPattern.matcher(senderMessage);
+        Matcher resM = resultAckPattern.matcher(senderMessage);
 
-        if (ma.find() && ma.groupCount() == paramLength + 1)
+        String prefix = "";
+        if (resM.find() && resM.groupCount() == 3)
         {
-            String resultMessage = ma.group(ma.groupCount());
-            //checkAckMessage(new AckMessage(ma.group(paramLength), senderIp, senderPort, resultMessage));
-            //System.err.println("RESULT MSG: " + resultMessage);
-            String ackSourceMessage = ma.group(paramLength);
-            String prefix = getMessagePrefix(ackSourceMessage);
-//            Action a = findAction(prefix);
-//            if (a != null)
-//            {
-//                a.perform(senderIp, senderPort, ackSourceMessage);
-//            }
+            // result ack message
+            prefix = getMessagePrefix(resM.group(2));
+        }
+        else if (m.find() && m.groupCount() == 2)
+        {
+            // normal ack message
+            prefix = getMessagePrefix(m.group(2));
+        }
+        Action action = findAction(prefix);
+        if (action != null)
+        {
+            action.performAck(senderIp, senderPort, senderMessage);
         }
         else
         {
-            String seeMsg = senderMessage.substring(4);
-            //checkAckMessage(new AckMessage(seeMsg, senderIp, senderPort, seeMsg, System.currentTimeMillis()));
-            //System.err.println("ACK SENDER MESSAGE: " + seeMsg);
-            String ackSourceMessage = seeMsg;
-            String prefix = getMessagePrefix(ackSourceMessage);
-
-//            Action a = findAction(prefix);
-//            if (a != null)
-//            {
-//                a.perform(senderIp, senderPort, ackSourceMessage);
-//            }
+            System.err.println("Unknown ack prefix");
         }
-        //System.err.println("save to db" + senderIp + ":" + senderPort);
-        agentsDb.addAgent(senderIp, senderPort);
-        displayMessage(senderMessage, senderIp + ":" + senderPort);
-    }
 
-    private void checkAckMessage(AckMessage ackMessage)
-    {
-        AckMessage lastWaitingMessage = waitingMessages.peek();
-        if (lastWaitingMessage != null)
+        boolean addedToDb = agentsDb.addAgent(senderIp, senderPort);
+        if (addedToDb)
         {
-            if (lastWaitingMessage.equals(ackMessage))
-            {
-                System.out.println(getName() + " ack complete: " + lastWaitingMessage.messageToResend + " res: " + lastWaitingMessage.resultMessage);
-                waitingMessages.poll();
-            }
+            System.err.println("save to db" + senderIp + ":" + senderPort);
         }
+        displayMessage(senderMessage, senderIp + ":" + senderPort);
     }
 
     private List<String> getSenderParameters(String message)
@@ -288,16 +243,11 @@ public class Agent extends Observable
         return null;
     }
 
-    private void sendResultAck(String ip, int port, String msg, String result) throws Exception
-    {
-        sendAck(ip, port, "\"" + msg + "\" " + result);
-    }
-
     private void sendAck(String ip, int port, String msg) throws Exception
     {
         if (!ip.equals(getIp()) || port != getPort())
         {
-            ActionResult ar = new AckAction(getIp(), getPort()).perform(ip, port, msg);
+            ActionResult ar = new AckAction(getIp(), getPort(), ip, port).perform(msg);
             if (!ar.isPerformed())
             {
                 System.err.println("ACK send failed");
@@ -338,55 +288,18 @@ public class Agent extends Observable
             {
                 try
                 {
-                    ByteBuffer buffer = ByteBuffer.allocate(1024);
+                    ByteBuffer buffer = ByteBuffer.allocate(1024 * 64);
                     SocketAddress socketAddress = serverChannel.receive(buffer);
-                    buffer.flip();
-
-                    byte[] bufferData = new byte[buffer.limit()];
-                    buffer.get(bufferData, 0, buffer.limit());
-                    List<String> receiveParams = getSenderParameters(new String(bufferData));
+                    String receivedMessage = readBuffer(buffer);
+                    List<String> receiveParams = getSenderParameters(receivedMessage);
                     if (receiveParams == null)
                     {
                         continue;
                     }
                     String senderMessage = receiveParams.get(2);
-
-                    //String ackMessage = String.format("%s:%d ack %s", getIp(), getPort(), senderMessage);
                     String ackMessage = "ack " + senderMessage;
-
-                    //byte[] bufferData = new byte[buffer.limit() - 1];
-                    //buffer.get(bufferData, 0, buffer.limit() - 1);
-                    //byte indexByte = buffer.get(buffer.limit() - 1);
-                    //buffer.clear();
-                    //buffer.put("ack ".getBytes());
-                    //buffer.put(bufferData);
-                    //buffer.put(indexByte);
-                    //buffer.flip();
                     serverChannel.send(ByteBuffer.wrap(ackMessage.getBytes()), socketAddress);
-                    messages.put(new String(bufferData));
-//                    if (buffer.limit() == 0)
-//                    {
-//                        continue;
-//                    }
-//                    byte[] allBytes = new byte[buffer.limit()];
-//                    byte index = buffer.get(buffer.limit() - 1);
-//
-//                    byte[] msgBytes = new byte[buffer.limit() - 1];
-//                    buffer.get(msgBytes, 0, buffer.limit() - 1);
-//                    String newMsg = new String(msgBytes);//readBuffer(buffer);
-//                    String ackMsg = "ack " + newMsg;
-//                    byte[] ackMsgBytes = ackMsg.getBytes();
-//
-//                    byte[] ackBytes = new byte[ackMsgBytes.length + 1];
-//                    for (int i = 0; i < ackMsgBytes.length; i++)
-//                    {
-//                        ackBytes[i] = ackMsgBytes[i];
-//                    }
-//                    ackBytes[ackMsgBytes.length] = index;
-//                    serverChannel.send(ByteBuffer.wrap(ackBytes), socketAddress);
-//                    messages.put(newMsg);
-                    //Thread.sleep(1000);
-
+                    messages.put(receivedMessage);
                 }
                 catch (IOException ex)
                 {
@@ -437,8 +350,14 @@ public class Agent extends Observable
         messages.put(message);
     }
 
-    public void saveMessage(String message)
+    public void storeMessage(String message)
     {
-        savedMessages.add(message);
+        storedMessages.add(message);
+        knowledges.add(message);
+    }
+
+    public List<String> getKnowledges()
+    {
+        return knowledges;
     }
 }

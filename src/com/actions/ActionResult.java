@@ -5,41 +5,51 @@
  */
 package com.actions;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 /**
  *
  * @author Honza
  */
 public class ActionResult
 {
-    private final String resultMessage;
+    private final List<String> resultMessages;
     private final boolean performed;
     private final boolean hasResult;
 
-    private ActionResult(String resultMessage, boolean performed, boolean hasResult)
+
+    private ActionResult(List<String> resultMessages, boolean performed, boolean hasResult)
     {
-        this.resultMessage = resultMessage;
+        this.resultMessages = resultMessages;
         this.performed = performed;
         this.hasResult = hasResult;
     }
 
     public ActionResult(boolean performed)
     {
-        this(null, performed, false);
+        this(new ArrayList<String>(), performed, false);
     }
 
     public ActionResult()
     {
-        this(null, false, false);
+        this(new ArrayList<String>(), false, false);
+    }
+
+    public ActionResult(List<String> resultMessages, boolean performed)
+    {
+        this(resultMessages, performed, true);
     }
 
     public ActionResult(String resultMessage, boolean performed)
     {
-        this(resultMessage, performed, true);
+        this(Arrays.asList(resultMessage), performed);
     }
 
-    public String getResultMessage()
+    public List<String> getResultMessages()
     {
-        return resultMessage;
+        return resultMessages;
     }
 
     public boolean isPerformed()

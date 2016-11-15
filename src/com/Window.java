@@ -6,16 +6,22 @@
 package com;
 
 import com.actions.AgentsAction;
-import com.actions.FileAction;
+import com.actions.ExecuteAction;
 import com.actions.OsAction;
 import com.actions.PackageAction;
 import com.actions.SendAction;
 import com.actions.SolveAction;
 import com.actions.StoreAction;
+import java.awt.Color;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.security.CodeSource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Observable;
@@ -24,6 +30,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.DefaultListModel;
 import javax.swing.JOptionPane;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DefaultCaret;
+import javax.swing.text.Document;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
 
 /**
  *
@@ -33,7 +44,10 @@ public class Window extends javax.swing.JFrame implements Observer
 {
 
     private final List<Agent> agents = new ArrayList<>();
-    private final DefaultListModel<String> model;
+    private final DefaultListModel<String> agentsModel;
+    private final DefaultListModel<String> knowledgeModel;
+    private final DefaultListModel<String> discoveredAgentsModel;
+    private String jarPath;
 
     /**
      * Creates new form Window
@@ -41,34 +55,59 @@ public class Window extends javax.swing.JFrame implements Observer
     public Window()
     {
         initComponents();
-        setLocationRelativeTo(null);
-        model = new DefaultListModel<>();
-        agentsList.setModel(model);
+        try
+        {
+            CodeSource codeSource = Window.class.getProtectionDomain().getCodeSource();
+            File jarFile = new File(codeSource.getLocation().toURI().getPath());
+            jarPath = jarFile.getParentFile().getPath();
+        }
+        catch (URISyntaxException ex)
+        {
+            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        agentsModel = new DefaultListModel<>();
+        knowledgeModel = new DefaultListModel<>();
+        discoveredAgentsModel = new DefaultListModel<>();
+
+        agentsList.setModel(agentsModel);
+        knowledgeList.setModel(knowledgeModel);
+        discoveredAgentsList.setModel(discoveredAgentsModel);
+        DefaultCaret dc = (DefaultCaret) outputText.getCaret();
+        dc.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+
+        System.setOut(new PrintStream(new ConsoleStream(Color.GREEN), true));
+        System.setErr(new PrintStream(new ConsoleStream(Color.RED), true));
+
+        System.out.println("test");
+        System.err.println("aaaa");
+
         messageField.setText("");
         ipField.setText(getLocalIp());
         String ip = getLocalIp();
-        messageField.setText("send " + ip + " 8000 send " + ip + " 10000 " + "solve " + "4+2");
+        //messageField.setText("send " + ip + " 8000 send " + ip + " 10000 " + "solve " + "4+2");
+        //messageField.setText("send " + ip + " 8000 " + "some msg");
+        //messageField.setText("send " + ip + " 8000 " + "solve 4+4");
         //messageField.setText("solve 192.168.2.102 8000 4+2");
-        //messageField.setText("package 192.168.2.102 8000 192.168.2.102 5000");
-        //messageField.setText("package 192.168.2.102 8000 D:\\file1.txt D:\\file2.txt");
+        messageField.setText("package 192.168.2.102 8000 192.168.2.102 5000");
+        //messageField.setText("package 192.168.2.102 8000 D:\\file1.txt D:\\file2.txt D:\\crazy_train.jpg D:\\MS.jar D:\\m.mp3");
         //messageField.setText("package 192.168.2.102 8000 D:\\crazy_train.jpg");
         //messageField.setText("file hash package 192.168.2.102 8000 D:\\file1.txt D:\\file2.txt");
         //messageField.setText("send 192.168.2.102 8000 ahoj");
         //messageField.setText("os");
-        try
-        {
-            addAgent("a", ipField.getText(), 5000);
-            addAgent("b", ipField.getText(), 8000);
-            addAgent("c", ipField.getText(), 10000);
-        }
-        catch (IOException ex)
-        {
-            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        catch (InterruptedException ex)
-        {
-            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        //messageField.setText("execute java -jar D:\\MS.jar");
+        //messageField.setText("send 192.168.2.102 8000 package 192.168.2.102 5000 192.168.2.102 8000");
+
+//        try
+//        {
+//            addAgent("a", ipField.getText(), 5000);
+//            addAgent("b", ipField.getText(), 8000);
+//            addAgent("c", ipField.getText(), 10000);
+//        }
+//        catch (IOException | InterruptedException ex)
+//        {
+//            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+//        }
     }
 
     private String getLocalIp()
@@ -92,19 +131,54 @@ public class Window extends javax.swing.JFrame implements Observer
         {
             type = "linux";
         }
+        if (name.equals("c"))
+        {
+            type = "mac";
+        }
         a.addAction(new SendAction());
-        a.addAction(new StoreAction(a));
+        a.addAction(new StoreAction());
         a.addAction(new SolveAction());
         a.addAction(new OsAction(type));
-        a.addAction(new AgentsAction(a));
-        a.addAction(new PackageAction(a, "C:\\Users\\Honza\\Documents\\NetBeansProjects\\MS"));
-        a.addAction(new FileAction());
+        a.addAction(new AgentsAction());
+        a.addAction(new ExecuteAction());
+        //a.addAction(new PackageAction(jarPath + File.separator + "MS.jar"));
+        a.addAction(new PackageAction("C:\\Users\\Honza\\Documents\\NetBeansProjects\\MS\\dist\\MS.jar"));
 
         a.addObserver(this);
         a.start();
         agents.add(a);
-        model.addElement(name);
+        agentsModel.addElement(name);
         printOutput(String.format("Agent '%s' was created and listening at '%s:%d'", name, ip, port));
+    }
+
+    public Agent getSelectedAgent()
+    {
+        String agentName = agentsList.getSelectedValue();
+        if (agentName == null)
+        {
+            return null;
+        }
+        return agents.stream().filter((a) -> a.getName().equals(agentName)).findFirst().orElse(null);
+    }
+
+    public synchronized void updateData(Agent a)
+    {
+        if (a != null)
+        {
+            List<String> discoveredAgents = a.getAgentDb().getAgentsList();
+            discoveredAgentsModel.clear();
+            for (String agentName : discoveredAgents)
+            {
+                discoveredAgentsModel.addElement(agentName);
+            }
+
+            List<String> agentKnowledges = a.getKnowledges();
+            knowledgeModel.clear();
+            for (String knowledge : agentKnowledges)
+            {
+                knowledgeModel.addElement(knowledge);
+            }
+        }
     }
 
     private synchronized void printOutput(String text)
@@ -145,9 +219,22 @@ public class Window extends javax.swing.JFrame implements Observer
         outputText = new javax.swing.JTextArea();
         jLabel6 = new javax.swing.JLabel();
         jButton1 = new javax.swing.JButton();
+        jScrollPane3 = new javax.swing.JScrollPane();
+        knowledgeList = new javax.swing.JList<>();
+        jLabel8 = new javax.swing.JLabel();
+        jScrollPane4 = new javax.swing.JScrollPane();
+        discoveredAgentsList = new javax.swing.JList<>();
+        jLabel9 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
+        agentsList.addListSelectionListener(new javax.swing.event.ListSelectionListener()
+        {
+            public void valueChanged(javax.swing.event.ListSelectionEvent evt)
+            {
+                agentsListValueChanged(evt);
+            }
+        });
         jScrollPane1.setViewportView(agentsList);
 
         jLabel2.setText("Agents");
@@ -242,6 +329,14 @@ public class Window extends javax.swing.JFrame implements Observer
             }
         });
 
+        jScrollPane3.setViewportView(knowledgeList);
+
+        jLabel8.setText("Knowledges");
+
+        jScrollPane4.setViewportView(discoveredAgentsList);
+
+        jLabel9.setText("Discovered agents");
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -252,41 +347,64 @@ public class Window extends javax.swing.JFrame implements Observer
                     .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel3)
+                            .addComponent(jLabel5))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(jLabel2)
+                            .addComponent(jButton1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
+                        .addGap(18, 18, 18)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createSequentialGroup()
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(jLabel3)
-                                    .addComponent(jLabel5))
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                    .addComponent(jLabel2)
-                                    .addComponent(jButton1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)))
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(messageField, javax.swing.GroupLayout.PREFERRED_SIZE, 548, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(sendButton))
-                            .addComponent(jLabel6))
-                        .addGap(0, 0, Short.MAX_VALUE)))
+                                .addComponent(jLabel8)
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 301, Short.MAX_VALUE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jLabel9)
+                            .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 174, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(messageField, javax.swing.GroupLayout.PREFERRED_SIZE, 548, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addComponent(sendButton))
+                    .addComponent(jLabel6))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jLabel3)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addComponent(jLabel2)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 88, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addContainerGap()
+                        .addComponent(jLabel3)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jButton1)))
-                .addGap(26, 26, 26)
-                .addComponent(jLabel5)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(26, 26, 26)
+                        .addComponent(jLabel5)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addGap(31, 31, 31)
+                                .addComponent(jLabel2)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(jScrollPane1))
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                        .addComponent(jLabel8)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                        .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                        .addComponent(jLabel9)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                        .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jButton1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(sendButton)
                     .addComponent(messageField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -312,7 +430,7 @@ public class Window extends javax.swing.JFrame implements Observer
             agentNameField.setText("");
             agentPortField.setText("");
         }
-        catch (Exception e)
+        catch (IOException | InterruptedException | NumberFormatException e)
         {
             System.err.println(e.toString());
         }
@@ -321,69 +439,56 @@ public class Window extends javax.swing.JFrame implements Observer
 
     private void sendButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_sendButtonActionPerformed
     {//GEN-HEADEREND:event_sendButtonActionPerformed
-        String agentName = agentsList.getSelectedValue();
-        if (agentName == null)
+        // send message
+        String message = messageField.getText();
+        if (message.length() == 0)
+        {
+            return;
+        }
+        Agent selectedAgent = getSelectedAgent();
+        if (selectedAgent != null)
+        {
+            selectedAgent.see(selectedAgent.getIp() + ":" + selectedAgent.getPort() + " " + message);
+        }
+        else
         {
             JOptionPane.showMessageDialog(this, "No agent is selected in agents list", "No agent", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        String message = messageField.getText();
-        if (message.equals(""))
-        {
-            return;
-        }
-        Agent agentToSend = null;
-        for (Agent a : agents)
-        {
-            if (a.getName().equals(agentName))
-            {
-                agentToSend = a;
-                break;
-            }
-        }
-
-        if (agentToSend != null)
-        {
-            agentToSend.see(agentToSend.getIp() + ":" + agentToSend.getPort() + " " + message);
         }
     }//GEN-LAST:event_sendButtonActionPerformed
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_jButton1ActionPerformed
     {//GEN-HEADEREND:event_jButton1ActionPerformed
-        // TODO add your handling code here:
-        String selected = agentsList.getSelectedValue();
-
-        if (selected != null)
+        // remove agent
+        Agent selectedAgent = getSelectedAgent();
+        if (selectedAgent != null)
         {
-            Agent agentToRemove = null;
-            for (Agent a : agents)
+            try
             {
-                if (a.getName().equals(selected))
-                {
-                    agentToRemove = a;
-                    break;
-
-                }
+                selectedAgent.stop();
+                agents.remove(selectedAgent);
+                agentsModel.removeElement(selectedAgent.getName());
             }
-            if (agentToRemove != null)
+            catch (IOException | InterruptedException ex)
             {
-                try
-                {
-                    agentToRemove.stop();
-                    agents.remove(agentToRemove);
-                    model.removeElement(selected);
-                }
-                catch (IOException ex)
-                {
-                    Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
-                }
-                catch (InterruptedException ex)
-                {
-                    Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }//GEN-LAST:event_jButton1ActionPerformed
+
+    private void agentsListValueChanged(javax.swing.event.ListSelectionEvent evt)//GEN-FIRST:event_agentsListValueChanged
+    {//GEN-HEADEREND:event_agentsListValueChanged
+        updateData(getSelectedAgent());
+    }//GEN-LAST:event_agentsListValueChanged
+
+    @Override
+    public void update(Observable o, Object arg)
+    {
+        if (arg instanceof String)
+        {
+            String message = (String) arg;
+            printOutput(message);
+        }
+    }
 
     /**
      * @param args the command line arguments
@@ -425,13 +530,45 @@ public class Window extends javax.swing.JFrame implements Observer
         //</editor-fold>
 
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable()
+        java.awt.EventQueue.invokeLater(() ->
         {
-            public void run()
-            {
-                new Window().setVisible(true);
-            }
+            Window w = new Window();
+            w.setLocationRelativeTo(null);
+            w.setVisible(true);
         });
+    }
+
+    private class ConsoleStream extends ByteArrayOutputStream
+    {
+
+        private Color color;
+        private SimpleAttributeSet attributes;
+
+        public ConsoleStream(Color color)
+        {
+            this.color = color;
+            attributes = new SimpleAttributeSet();
+            StyleConstants.setForeground(attributes, color);
+        }
+
+        @Override
+        public void flush() throws IOException
+        {
+            String msg = toString();
+            Document document = outputText.getDocument();
+            int offset = document.getLength();
+            try
+            {
+                document.insertString(offset, msg, attributes);
+                
+                reset();
+            }
+            catch (BadLocationException ex)
+            {
+                Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -439,6 +576,7 @@ public class Window extends javax.swing.JFrame implements Observer
     private javax.swing.JTextField agentPortField;
     private javax.swing.JList<String> agentsList;
     private javax.swing.JButton createAgentButton;
+    private javax.swing.JList<String> discoveredAgentsList;
     private javax.swing.JTextField ipField;
     private javax.swing.JButton jButton1;
     private javax.swing.JLabel jLabel1;
@@ -448,17 +586,16 @@ public class Window extends javax.swing.JFrame implements Observer
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
+    private javax.swing.JLabel jLabel8;
+    private javax.swing.JLabel jLabel9;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JScrollPane jScrollPane3;
+    private javax.swing.JScrollPane jScrollPane4;
+    private javax.swing.JList<String> knowledgeList;
     private javax.swing.JTextField messageField;
     private javax.swing.JTextArea outputText;
     private javax.swing.JButton sendButton;
     // End of variables declaration//GEN-END:variables
-
-    @Override
-    public void update(Observable o, Object arg)
-    {
-        printOutput((String) arg);
-    }
 }

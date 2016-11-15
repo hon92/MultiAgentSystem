@@ -5,8 +5,10 @@
  */
 package com.actions;
 
-import com.Agent;
+import com.Parameter;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  *
@@ -14,29 +16,40 @@ import java.util.List;
  */
 public class StoreAction extends Action
 {
-
-    private final Agent agent;
-
-    public StoreAction(Agent agent)
+    public StoreAction()
     {
-        super("store", 1, "(store)\\s(.+)", false);
-        this.agent = agent;
+        super("store");
+        addNextParameter(new Parameter<StoreAction>(1, "(store)\\s(.+)", this)
+        {
+            @Override
+            public ActionResult doAction(StoreAction sourceAction, List<String> arguments)
+            {
+                return performStore(arguments);
+            }
+        });
     }
 
     @Override
-    public ActionResult perform(String senderIp, int senderPort, String msg) throws Exception
+    public void performAck(String ip, int port, String message)
     {
-        List<String> parameters = getMessageParameters(msg);
-        if (parameters == null)
+        Pattern p = Pattern.compile("(ack)\\s(store)\\s(.+)");
+        Matcher m = p.matcher(message);
+        if (m.find() && m.groupCount() == 3)
         {
-            return new ActionResult();
+            String res = m.group(3);
+            agent.storeMessage(res);
         }
-        String message = parameters.get(0);
-        agent.saveMessage(message);
-        String storeMsg = String.format("Agent '%s' push to store '%s'",
-                agent.getName(), message);
-        agent.displayMessage(storeMsg, senderIp + ":" + senderPort);
-        return new ActionResult(true);
     }
+
+    private ActionResult performStore(List<String> params)
+    {
+        String message = params.get(0);
+        String ip = agent.getIp();
+        int port = agent.getPort();
+
+        boolean sended = sendMessageToAddress(ip, port, message, ip, port);
+        return new ActionResult(sended);
+    }
+
 
 }

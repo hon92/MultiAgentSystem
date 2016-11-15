@@ -14,19 +14,22 @@ public class AckAction extends Action
 
     private final String agentIp;
     private final int agentPort;
+    private final String senderIp;
+    private final int senderPort;
 
-    public AckAction(String agentIp, int agentPort)
+    public AckAction(String agentIp, int agentPort, String senderIp, int senderPort)
     {
-        super("ack", 0, "", false);
+        super("ack");
         this.agentIp = agentIp;
         this.agentPort = agentPort;
+        this.senderIp = senderIp;
+        this.senderPort = senderPort;
     }
 
     @Override
-    public ActionResult perform(String senderIp, int senderPort, String msg) throws Exception
+    public ActionResult perform(String msg)
     {
         String ackMsg = String.format("ack %s", msg);
-        //System.out.println("ACK:" + ackMsg);
         boolean sended = sendMessageToAddress(agentIp, agentPort, ackMsg, senderIp, senderPort);
         return new ActionResult(sended);
     }

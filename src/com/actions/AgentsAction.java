@@ -5,9 +5,11 @@
  */
 package com.actions;
 
-import com.Agent;
 import com.AgentDb;
+import com.Parameter;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  *
@@ -15,27 +17,43 @@ import java.util.List;
  */
 public class AgentsAction extends Action
 {
-
-    private final Agent agent;
-
-    public AgentsAction(Agent agent)
+    public AgentsAction()
     {
-        super("agents", 2, "(agents)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)", true);
-        this.agent = agent;
+        super("agents");
+        addNextParameter(new Parameter<AgentsAction>(0, "(agents)", this)
+        {
+            @Override
+            public ActionResult doAction(AgentsAction sourceAction, List<String> arguments)
+            {
+                return performSendAgentsList();
+            }
+        });
+    }
+
+    private ActionResult performSendAgentsList()
+    {
+        String agentsString = getAgentsString();
+        String ip = agent.getIp();
+        int port = agent.getPort();
+        boolean sended = sendMessageToAddress(ip, port, agentsString, ip, port);
+        return new ActionResult(agentsString, sended);
     }
 
     @Override
-    public ActionResult perform(String senderIp, int senderPort, String msg) throws Exception
+    public void performAck(String ip, int port, String message)
     {
-        List<String> parameters = getMessageParameters(msg);
-        if (parameters == null)
+        Pattern p = Pattern.compile("(ack)\\s\"(.+)\"\\s(.+)");
+        Matcher m = p.matcher(message);
+        if (m.find() && m.groupCount() == 3)
         {
-            return new ActionResult();
+            String solveMsg = m.group(2);
+            String res = m.group(3);
+            agent.storeMessage(solveMsg + " " + res);
         }
+    }
 
-        String ip = parameters.get(0);
-        String portStr = parameters.get(1);
-        int port = Integer.parseInt(portStr);
+    private String getAgentsString()
+    {
         AgentDb db = agent.getAgentDb();
         List<String> agentsInfo = db.getAgentsList();
         StringBuilder sb = new StringBuilder();
@@ -53,8 +71,6 @@ public class AgentsAction extends Action
             }
         }
         sb.append("}");
-        boolean sended = sendMessageToAddress(senderIp, senderPort, sb.toString(), ip, port);
-        return new ActionResult(sb.toString(), sended);
+        return sb.toString();
     }
-
 }

@@ -5,6 +5,7 @@
  */
 package com.actions;
 
+import com.Parameter;
 import java.util.List;
 
 /**
@@ -15,26 +16,26 @@ import java.util.List;
 //send ip port message
 public class SendAction extends Action
 {
-
     public SendAction()
     {
-        super("send", 3, "(send)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)", false);
+        super("send");
+        addNextParameter(new Parameter<SendAction>(3, "(send)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)", this)
+        {
+            @Override
+            public ActionResult doAction(SendAction sourceAction, List<String> arguments)
+            {
+                return performSend(arguments);
+            }
+        });
     }
 
-    @Override
-    public ActionResult perform(String senderIp, int senderPort, String msg) throws Exception
+    private ActionResult performSend(List<String> params)
     {
-        List<String> parameters = getMessageParameters(msg);
-        if (parameters == null)
-        {
-            return new ActionResult();
-        }
-
-        String ip = parameters.get(0);
-        String portStr = parameters.get(1);
-        String message = parameters.get(2);
+        String ip = params.get(0);
+        String portStr = params.get(1);
+        String message = params.get(2);
         int port = Integer.parseInt(portStr);
-        boolean sended = sendMessageToAddress(senderIp, senderPort, message, ip, port);
+        boolean sended = sendMessageToAddress(agent.getIp(), agent.getPort(), message, ip, port);
         return new ActionResult(sended);
     }
 

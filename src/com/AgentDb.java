@@ -45,13 +45,15 @@ public class AgentDb
         agentDb = new ArrayList<>();
     }
 
-    public void addAgent(String address, int port)
+    public boolean addAgent(String address, int port)
     {
         AgentEntry newAgent = new AgentEntry(address, port);
         if (!agentDb.contains(newAgent))
         {
             agentDb.add(newAgent);
+            return true;
         }
+        return false;
     }
 
     public List<String> getAgentsList()
