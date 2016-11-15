@@ -20,6 +20,9 @@ import java.util.logging.Logger;
 public class ExecuteAction extends Action
 {
 
+    public static final String SUCCESS = "Success";
+    public static final String FAIL = "Fail";
+
     public ExecuteAction()
     {
         super("execute");
@@ -59,21 +62,21 @@ public class ExecuteAction extends Action
             }
             catch (IOException ex)
             {
-
+                return new ActionResult(FAIL, true);
             }
 
         }
         catch (IOException e)
         {
-
+            return new ActionResult(FAIL, true);
         }
         catch (InterruptedException ex)
         {
             Logger.getLogger(ExecuteAction.class.getName()).log(Level.SEVERE, null, ex);
+            return new ActionResult(FAIL, true);
         }
 
-        return new ActionResult("EXECUTE SUCCESS", true);
+        return new ActionResult(SUCCESS, true);
     }
-
 
 }
