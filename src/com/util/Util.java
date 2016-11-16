@@ -19,6 +19,7 @@ import java.util.Base64;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import javax.xml.bind.DatatypeConverter;
 
@@ -91,9 +92,51 @@ public class Util
         return null;
     }
 
-    public static File unzipFile(File zipFile)
+    public static boolean unzipFile(File zipFile)
     {
-        return null;
+        if (!zipFile.exists() || !zipFile.getName().endsWith(".zip"))
+        {
+            return false;
+        }
+
+        String filename = zipFile.getName();
+        String nameWithouExtension = filename.substring(0, filename.length() - 4);
+        String outputFolderName = zipFile.getParent() + File.separator + nameWithouExtension;
+        File outputFolder = new File(outputFolderName);
+        if (!outputFolder.exists())
+        {
+            if (!outputFolder.mkdir())
+            {
+                return false;
+            }
+        }
+
+        byte[] buffer = new byte[2048];
+        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile)))
+        {
+            ZipEntry zipEntry;
+            while ((zipEntry = zis.getNextEntry()) != null)
+            {
+                String name = zipEntry.getName();
+                File f = new File(outputFolderName + File.separator + name);
+                new File(f.getParent()).mkdir();
+                try (FileOutputStream fos = new FileOutputStream(f))
+                {
+                    int readed = 0;
+                    while ((readed = zis.read(buffer)) != -1)
+                    {
+                        fos.write(buffer, 0, readed);
+                    }
+                }
+            }
+            zis.closeEntry();
+            return true;
+        }
+        catch (IOException ex)
+        {
+            ex.printStackTrace();
+            return false;
+        }
     }
 
     public static byte[] decodeString(String binaryString)
