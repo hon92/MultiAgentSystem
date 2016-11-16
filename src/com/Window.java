@@ -35,6 +35,7 @@ import javax.swing.text.DefaultCaret;
 import javax.swing.text.Document;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 
 /**
  *
@@ -48,6 +49,7 @@ public class Window extends javax.swing.JFrame implements Observer
     private final DefaultListModel<String> knowledgeModel;
     private final DefaultListModel<String> discoveredAgentsModel;
     private String jarPath;
+    private final SimpleAttributeSet attributeSet = new SimpleAttributeSet();
 
     /**
      * Creates new form Window
@@ -76,11 +78,8 @@ public class Window extends javax.swing.JFrame implements Observer
         DefaultCaret dc = (DefaultCaret) outputText.getCaret();
         dc.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 
-        System.setOut(new PrintStream(new ConsoleStream(Color.GREEN), true));
+        System.setOut(new PrintStream(new ConsoleStream(Color.BLACK), true));
         System.setErr(new PrintStream(new ConsoleStream(Color.RED), true));
-
-        System.out.println("test");
-        System.err.println("aaaa");
 
         messageField.setText("");
         ipField.setText(getLocalIp());
@@ -89,7 +88,7 @@ public class Window extends javax.swing.JFrame implements Observer
         //messageField.setText("send " + ip + " 8000 " + "some msg");
         //messageField.setText("send " + ip + " 8000 " + "solve 4+4");
         //messageField.setText("solve 192.168.2.102 8000 4+2");
-        messageField.setText("package 192.168.2.102 8000 192.168.2.102 5000");
+        //messageField.setText("package 192.168.2.102 8000 192.168.2.102 5000");
         //messageField.setText("package 192.168.2.102 8000 D:\\file1.txt D:\\file2.txt D:\\crazy_train.jpg D:\\MS.jar D:\\m.mp3");
         //messageField.setText("package 192.168.2.102 8000 D:\\crazy_train.jpg");
         //messageField.setText("file hash package 192.168.2.102 8000 D:\\file1.txt D:\\file2.txt");
@@ -98,16 +97,16 @@ public class Window extends javax.swing.JFrame implements Observer
         //messageField.setText("execute java -jar D:\\MS.jar");
         //messageField.setText("send 192.168.2.102 8000 package 192.168.2.102 5000 192.168.2.102 8000");
 
-//        try
-//        {
-//            addAgent("a", ipField.getText(), 5000);
-//            addAgent("b", ipField.getText(), 8000);
-//            addAgent("c", ipField.getText(), 10000);
-//        }
-//        catch (IOException | InterruptedException ex)
-//        {
-//            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
-//        }
+        try
+        {
+            addAgent("a", ipField.getText(), 5000);
+            addAgent("b", ipField.getText(), 8000);
+            addAgent("c", ipField.getText(), 10000);
+        }
+        catch (IOException | InterruptedException ex)
+        {
+            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     private String getLocalIp()
@@ -183,11 +182,21 @@ public class Window extends javax.swing.JFrame implements Observer
 
     private synchronized void printOutput(String text)
     {
-        if (!outputText.getText().equals(""))
+        appendTextToOutput(text);
+    }
+
+    private void appendTextToOutput(String text)
+    {
+        Document doc = outputText.getDocument();
+
+        try
         {
-            outputText.append("\n");
+            doc.insertString(doc.getLength(), text, attributeSet);
         }
-        outputText.append(text);
+        catch (BadLocationException ex)
+        {
+            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     /**
@@ -215,8 +224,6 @@ public class Window extends javax.swing.JFrame implements Observer
         messageField = new javax.swing.JTextField();
         sendButton = new javax.swing.JButton();
         jLabel5 = new javax.swing.JLabel();
-        jScrollPane2 = new javax.swing.JScrollPane();
-        outputText = new javax.swing.JTextArea();
         jLabel6 = new javax.swing.JLabel();
         jButton1 = new javax.swing.JButton();
         jScrollPane3 = new javax.swing.JScrollPane();
@@ -225,6 +232,8 @@ public class Window extends javax.swing.JFrame implements Observer
         jScrollPane4 = new javax.swing.JScrollPane();
         discoveredAgentsList = new javax.swing.JList<>();
         jLabel9 = new javax.swing.JLabel();
+        jScrollPane5 = new javax.swing.JScrollPane();
+        outputText = new javax.swing.JTextPane();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -314,10 +323,6 @@ public class Window extends javax.swing.JFrame implements Observer
 
         jLabel5.setText("Message for agent");
 
-        outputText.setColumns(20);
-        outputText.setRows(5);
-        jScrollPane2.setViewportView(outputText);
-
         jLabel6.setText("Agents outputs");
 
         jButton1.setText("Remove selected");
@@ -337,6 +342,8 @@ public class Window extends javax.swing.JFrame implements Observer
 
         jLabel9.setText("Discovered agents");
 
+        jScrollPane5.setViewportView(outputText);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -344,7 +351,7 @@ public class Window extends javax.swing.JFrame implements Observer
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jScrollPane5)
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -366,10 +373,13 @@ public class Window extends javax.swing.JFrame implements Observer
                             .addComponent(jLabel9)
                             .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 174, javax.swing.GroupLayout.PREFERRED_SIZE)))
                     .addGroup(layout.createSequentialGroup()
-                        .addComponent(messageField, javax.swing.GroupLayout.PREFERRED_SIZE, 548, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, 18)
-                        .addComponent(sendButton))
-                    .addComponent(jLabel6))
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(messageField, javax.swing.GroupLayout.PREFERRED_SIZE, 548, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(18, 18, 18)
+                                .addComponent(sendButton))
+                            .addComponent(jLabel6))
+                        .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -411,7 +421,7 @@ public class Window extends javax.swing.JFrame implements Observer
                 .addGap(21, 21, 21)
                 .addComponent(jLabel6)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 293, Short.MAX_VALUE)
+                .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 293, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
 
@@ -541,12 +551,10 @@ public class Window extends javax.swing.JFrame implements Observer
     private class ConsoleStream extends ByteArrayOutputStream
     {
 
-        private Color color;
-        private SimpleAttributeSet attributes;
+        private final SimpleAttributeSet attributes;
 
         public ConsoleStream(Color color)
         {
-            this.color = color;
             attributes = new SimpleAttributeSet();
             StyleConstants.setForeground(attributes, color);
         }
@@ -555,19 +563,16 @@ public class Window extends javax.swing.JFrame implements Observer
         public void flush() throws IOException
         {
             String msg = toString();
-            Document document = outputText.getDocument();
-            int offset = document.getLength();
+            StyledDocument doc = outputText.getStyledDocument();
             try
             {
-                document.insertString(offset, msg, attributes);
-                
+                doc.insertString(doc.getLength(), msg, attributes);
                 reset();
             }
             catch (BadLocationException ex)
             {
                 Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
             }
-
         }
     }
 
@@ -590,12 +595,12 @@ public class Window extends javax.swing.JFrame implements Observer
     private javax.swing.JLabel jLabel9;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
+    private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JList<String> knowledgeList;
     private javax.swing.JTextField messageField;
-    private javax.swing.JTextArea outputText;
+    private javax.swing.JTextPane outputText;
     private javax.swing.JButton sendButton;
     // End of variables declaration//GEN-END:variables
 }

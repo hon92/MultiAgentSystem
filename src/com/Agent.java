@@ -200,10 +200,6 @@ public class Agent extends Observable
         {
             action.performAck(senderIp, senderPort, senderMessage);
         }
-        else
-        {
-            System.err.println("Unknown ack prefix");
-        }
 
         boolean addedToDb = agentsDb.addAgent(senderIp, senderPort);
         if (addedToDb)
