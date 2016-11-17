@@ -7,6 +7,8 @@ package com.actions;
 
 import com.Parameter;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  *
@@ -18,15 +20,15 @@ public class KnowledgeAction extends Action
     public static final String TRUE = "True";
     public static final String FALSE = "False";
 
-    public KnowledgeAction(String prefix)
+    public KnowledgeAction()
     {
-        super(prefix);
-        addNextParameter(new Parameter<KnowledgeAction>(1, "(knowledge)\\s(*)", this)
+        super("knowledge");
+        addNextParameter(new Parameter<KnowledgeAction>(0, "(knowledge)\\s\\*", this)
         {
             @Override
             public ActionResult doAction(KnowledgeAction sourceAction, List<String> arguments)
             {
-                return performAllKnowledges(arguments);
+                return performAllKnowledges();
             }
         });
 
@@ -40,19 +42,7 @@ public class KnowledgeAction extends Action
         });
     }
 
-    @Override
-    public ActionResult perform(String message)
-    {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-    @Override
-    public void performAck(String ip, int port, String message)
-    {
-        System.out.println("not implemented perform ack from knowledge command");
-    }
-
-    private ActionResult performAllKnowledges(List<String> params)
+    private ActionResult performAllKnowledges()
     {
         List<String> knowledges = agent.getKnowledges();
         StringBuilder sb = new StringBuilder();
@@ -70,15 +60,27 @@ public class KnowledgeAction extends Action
     private ActionResult performQuery(List<String> params)
     {
         String query = params.get(0);
+        Pattern p = Pattern.compile("(.+)\\s(.+)");
+
         List<String> knowledges = agent.getKnowledges();
         for (String knowledge : knowledges)
         {
-            String[] s = knowledge.split(" ");
-            String q = s[0];
-            String res = s[1];
-            if (q.equals(query))
+            Matcher m = p.matcher(knowledge);
+            if (m.matches() && m.groupCount() == 2)
             {
-                return new ActionResult(TRUE, true);
+                String q = m.group(1);
+                String res = m.group(2);
+                if (q.equals(query))
+                {
+                    return new ActionResult(res, true);
+                }
+            }
+            else
+            {
+                if (knowledge.equals(query))
+                {
+                    return new ActionResult("", true);
+                }
             }
         }
         return new ActionResult(FALSE, true);

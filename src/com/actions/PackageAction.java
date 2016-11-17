@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  *
@@ -33,33 +35,24 @@ public class PackageAction extends Action
         this.projectFile = projectFile;
         files = new HashMap<>();
 
-        addNextParameter(new Parameter<PackageAction>(4, "(package)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)", this)
+        addNextParameter(new Parameter<PackageAction>(2, "(package)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3}):(\\d+)", this)
         {
             @Override
             public ActionResult doAction(PackageAction sourceAction, List<String> arguments)
             {
-                return sourceAction.performSendProject(arguments);
+                return sourceAction.performSendProject();
             }
 
             @Override
             public boolean precondition(List<String> arguments)
             {
-                String sourceIp = arguments.get(2);
-                int sourcePort = Integer.parseInt(arguments.get(3));
+                String sourceIp = arguments.get(0);
+                int sourcePort = Integer.parseInt(arguments.get(1));
                 return sourceIp.equals(agent.getIp()) && sourcePort == agent.getPort();
             }
         });
 
-        addNextParameter(new Parameter<PackageAction>(8, "(package)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(\\d+)/(\\d+)\\s(.+)\\s(.+)\\s(\\d+)\\s(.+)", this)
-        {
-            @Override
-            public ActionResult doAction(PackageAction sourceAction, List<String> arguments)
-            {
-                return performFilePart(arguments);
-            }
-        });
-
-        addNextParameter(new Parameter<PackageAction>(3, "(package)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3})\\s(\\d+)\\s(.+)", this)
+        addNextParameter(new Parameter<PackageAction>(1, "(package)\\s(.+)", this)
         {
             @Override
             public ActionResult doAction(PackageAction sourceAction, List<String> arguments)
@@ -75,7 +68,7 @@ public class PackageAction extends Action
         return agent.getIp() + "-" + agent.getPort();
     }
 
-    private ActionResult performSendProject(List<String> params)
+    private ActionResult performSendProject()
     {
         File zipFile = Util.createZipFile(new File(projectFile));
         if (zipFile == null)
@@ -87,18 +80,12 @@ public class PackageAction extends Action
         {
             return new ActionResult();
         }
-        String targetIp = params.get(0);
-        int targetPort = Integer.parseInt(params.get(1));
-        for (String part : parts)
-        {
-            sendMessageToAddress(agent.getIp(), agent.getPort(), part, targetIp, targetPort);
-        }
-        return new ActionResult(true);
+        return new ActionResult(parts, true);
     }
 
     private ActionResult performSendFiles(List<String> params)
     {
-        String filesString = params.get(2);
+        String filesString = params.get(0);
         String[] filesNames = filesString.split(" ");
         List<String> allParts = new ArrayList<>();
 
@@ -122,13 +109,7 @@ public class PackageAction extends Action
                 System.err.println(filename + " cant be converted to zip");
             }
         }
-        String targetIp = params.get(0);
-        int targetPort = Integer.parseInt(params.get(1));
-        for (String part : allParts)
-        {
-            sendMessageToAddress(agent.getIp(), agent.getPort(), part, targetIp, targetPort);
-        }
-        return new ActionResult(true);
+        return new ActionResult(allParts, true);
     }
 
     private ActionResult performFilePart(List<String> params)
@@ -170,6 +151,24 @@ public class PackageAction extends Action
         return new ActionResult("RECEIVED", true);
     }
 
+    @Override
+    public void performAck(String ip, int port, String message)
+    {
+        final String filePartAckRegex = "ack\\s\"(.+)\"\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3}):(\\d+)\\s(\\d+)/(\\d+)\\s(.+)\\s(.+)\\s(\\d+)\\s(.+)";
+
+        Pattern p = Pattern.compile(filePartAckRegex);
+        Matcher m = p.matcher(message);
+        if (m.matches() && m.groupCount() == 9)
+        {
+            List<String> arguments = new ArrayList<>();
+            for (int i = 2; i <= m.groupCount(); i++)
+            {
+                arguments.add(m.group(i));
+            }
+            performFilePart(arguments);
+        }
+    }
+
     private List<String> prepareFileParts(File file)
     {
         if (!file.exists())
@@ -199,7 +198,7 @@ public class PackageAction extends Action
                 byte[] bytesToEncode = new byte[readed];
                 System.arraycopy(buffer, 0, bytesToEncode, 0, readed);
                 String encodedString = Util.encodeBytes(bytesToEncode);
-                String part = String.format("package %s %d %d/%d %s %s %d %s",
+                String part = String.format("%s:%d %d/%d %s %s %d %s",
                         agent.getIp(),
                         agent.getPort(),
                         index++,

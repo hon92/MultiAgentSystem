@@ -8,8 +8,6 @@ package com.actions;
 import com.AgentDb;
 import com.Parameter;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  *
@@ -33,23 +31,7 @@ public class AgentsAction extends Action
     private ActionResult performSendAgentsList()
     {
         String agentsString = getAgentsString();
-        String ip = agent.getIp();
-        int port = agent.getPort();
-        boolean sended = sendMessageToAddress(ip, port, agentsString, ip, port);
-        return new ActionResult(agentsString, sended);
-    }
-
-    @Override
-    public void performAck(String ip, int port, String message)
-    {
-        Pattern p = Pattern.compile("(ack)\\s\"(.+)\"\\s(.+)");
-        Matcher m = p.matcher(message);
-        if (m.find() && m.groupCount() == 3)
-        {
-            String solveMsg = m.group(2);
-            String res = m.group(3);
-            agent.storeMessage(solveMsg + " " + res);
-        }
+        return new ActionResult(agentsString, true);
     }
 
     private String getAgentsString()

@@ -7,6 +7,7 @@ package com;
 
 import com.actions.AgentsAction;
 import com.actions.ExecuteAction;
+import com.actions.KnowledgeAction;
 import com.actions.OsAction;
 import com.actions.PackageAction;
 import com.actions.SendAction;
@@ -16,7 +17,6 @@ import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.URISyntaxException;
@@ -78,10 +78,9 @@ public class Window extends javax.swing.JFrame implements Observer
         DefaultCaret dc = (DefaultCaret) outputText.getCaret();
         dc.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 
-        System.setOut(new PrintStream(new ConsoleStream(Color.BLACK), true));
-        System.setErr(new PrintStream(new ConsoleStream(Color.RED), true));
+        //System.setOut(new PrintStream(new ConsoleStream(Color.BLACK), true));
+        //System.setErr(new PrintStream(new ConsoleStream(Color.RED), true));
 
-        messageField.setText("");
         ipField.setText(getLocalIp());
         String ip = getLocalIp();
         //messageField.setText("send " + ip + " 8000 send " + ip + " 10000 " + "solve " + "4+2");
@@ -96,7 +95,7 @@ public class Window extends javax.swing.JFrame implements Observer
         //messageField.setText("os");
         //messageField.setText("execute java -jar D:\\MS.jar");
         //messageField.setText("send 192.168.2.102 8000 package 192.168.2.102 5000 192.168.2.102 8000");
-
+        //messageField.setText("send 192.168.2.102:8000 ahoj");
         try
         {
             addAgent("a", ipField.getText(), 5000);
@@ -140,6 +139,7 @@ public class Window extends javax.swing.JFrame implements Observer
         a.addAction(new OsAction(type));
         a.addAction(new AgentsAction());
         a.addAction(new ExecuteAction());
+        a.addAction(new KnowledgeAction());
         //a.addAction(new PackageAction(jarPath + File.separator + "MS.jar"));
         a.addAction(new PackageAction("C:\\Users\\Honza\\Documents\\NetBeansProjects\\MS\\dist\\MS.jar"));
 
@@ -182,6 +182,10 @@ public class Window extends javax.swing.JFrame implements Observer
 
     private synchronized void printOutput(String text)
     {
+        if (!outputText.getText().equals(""))
+        {
+            appendTextToOutput("\n");
+        }
         appendTextToOutput(text);
     }
 
@@ -234,16 +238,10 @@ public class Window extends javax.swing.JFrame implements Observer
         jLabel9 = new javax.swing.JLabel();
         jScrollPane5 = new javax.swing.JScrollPane();
         outputText = new javax.swing.JTextPane();
+        jButton2 = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
-        agentsList.addListSelectionListener(new javax.swing.event.ListSelectionListener()
-        {
-            public void valueChanged(javax.swing.event.ListSelectionEvent evt)
-            {
-                agentsListValueChanged(evt);
-            }
-        });
         jScrollPane1.setViewportView(agentsList);
 
         jLabel2.setText("Agents");
@@ -344,6 +342,15 @@ public class Window extends javax.swing.JFrame implements Observer
 
         jScrollPane5.setViewportView(outputText);
 
+        jButton2.setText("Update agent info");
+        jButton2.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
+                jButton2ActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -365,13 +372,18 @@ public class Window extends javax.swing.JFrame implements Observer
                         .addGap(18, 18, 18)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createSequentialGroup()
-                                .addComponent(jLabel8)
-                                .addGap(0, 0, Short.MAX_VALUE))
-                            .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 301, Short.MAX_VALUE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel9)
-                            .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 174, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addGroup(layout.createSequentialGroup()
+                                        .addComponent(jLabel8)
+                                        .addGap(0, 0, Short.MAX_VALUE))
+                                    .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 301, Short.MAX_VALUE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(jLabel9)
+                                    .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 174, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(jButton2)
+                                .addGap(0, 0, Short.MAX_VALUE))))
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createSequentialGroup()
@@ -413,7 +425,9 @@ public class Window extends javax.swing.JFrame implements Observer
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                         .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jButton1)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(jButton1)
+                            .addComponent(jButton2))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(sendButton)
@@ -485,10 +499,10 @@ public class Window extends javax.swing.JFrame implements Observer
         }
     }//GEN-LAST:event_jButton1ActionPerformed
 
-    private void agentsListValueChanged(javax.swing.event.ListSelectionEvent evt)//GEN-FIRST:event_agentsListValueChanged
-    {//GEN-HEADEREND:event_agentsListValueChanged
+    private void jButton2ActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_jButton2ActionPerformed
+    {//GEN-HEADEREND:event_jButton2ActionPerformed
         updateData(getSelectedAgent());
-    }//GEN-LAST:event_agentsListValueChanged
+    }//GEN-LAST:event_jButton2ActionPerformed
 
     @Override
     public void update(Observable o, Object arg)
@@ -584,6 +598,7 @@ public class Window extends javax.swing.JFrame implements Observer
     private javax.swing.JList<String> discoveredAgentsList;
     private javax.swing.JTextField ipField;
     private javax.swing.JButton jButton1;
+    private javax.swing.JButton jButton2;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;

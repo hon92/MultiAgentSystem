@@ -29,16 +29,12 @@ public class OsAction extends Action
             {
                 return performSendOsType();
             }
-
         });
     }
 
     private ActionResult performSendOsType()
     {
-        String ip = agent.getIp();
-        int port = agent.getPort();
-        boolean sended = sendMessageToAddress(ip, port, type, ip, port);
-        return new ActionResult(type, sended);
+        return new ActionResult(type, true);
     }
 
     @Override
@@ -50,7 +46,8 @@ public class OsAction extends Action
         {
             String osMsg = m.group(2);
             String res = m.group(3);
-            agent.storeMessage(osMsg + " " + res);
+            String msg = agent.getIp() + ":" + agent.getPort() + ":" + osMsg;
+            agent.storeMessage(msg + " " + res);
         }
     }
 

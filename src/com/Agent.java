@@ -48,7 +48,6 @@ public class Agent extends Observable
     private boolean running = false;
     private final BlockingQueue<String> messages = new ArrayBlockingQueue<>(1000);
     private final List<Action> availableActions = new ArrayList<>();
-    private final List<String> storedMessages = new ArrayList<>();
     private final List<String> knowledges = new ArrayList<>();
 
     public Agent(String name, int port, String ip)
@@ -149,7 +148,7 @@ public class Agent extends Observable
                 getName() + ":" + getPort(), senderIp + ":" + senderPort,
                 senderMessage);
 
-        //System.err.println(debugSeeStr);
+        System.err.println(debugSeeStr);
         try
         {
             if (prefix.equals("ack"))
@@ -201,10 +200,13 @@ public class Agent extends Observable
             action.performAck(senderIp, senderPort, senderMessage);
         }
 
-        boolean addedToDb = agentsDb.addAgent(senderIp, senderPort);
-        if (addedToDb)
+        if (!senderIp.equals(getIp()) || senderPort != getPort())
         {
-            System.err.println("save to db" + senderIp + ":" + senderPort);
+            boolean addedToDb = agentsDb.addAgent(senderIp, senderPort);
+            if (addedToDb)
+            {
+                System.err.println("save to db" + senderIp + ":" + senderPort);
+            }
         }
         displayMessage(senderMessage, senderIp + ":" + senderPort);
     }
@@ -348,7 +350,6 @@ public class Agent extends Observable
 
     public void storeMessage(String message)
     {
-        storedMessages.add(message);
         knowledges.add(message);
     }
 

@@ -20,8 +20,8 @@ import java.util.logging.Logger;
 public class ExecuteAction extends Action
 {
 
-    public static final String SUCCESS = "Success";
-    public static final String FAIL = "Fail";
+    public static final String SUCCESS = "SUCCESS";
+    public static final String FAIL = "FAIL";
 
     public ExecuteAction()
     {
@@ -34,12 +34,6 @@ public class ExecuteAction extends Action
                 return performExecute(arguments);
             }
         });
-    }
-
-    @Override
-    public void performAck(String ip, int port, String message)
-    {
-        System.out.println("not implemented perform ack from execute command");
     }
 
     private ActionResult performExecute(List<String> params)
@@ -60,11 +54,7 @@ public class ExecuteAction extends Action
                     System.out.println(line);
                 }
             }
-            catch (IOException ex)
-            {
-                return new ActionResult(FAIL, true);
-            }
-
+            return new ActionResult(SUCCESS, true);
         }
         catch (IOException e)
         {
@@ -75,8 +65,6 @@ public class ExecuteAction extends Action
             Logger.getLogger(ExecuteAction.class.getName()).log(Level.SEVERE, null, ex);
             return new ActionResult(FAIL, true);
         }
-
-        return new ActionResult(SUCCESS, true);
     }
 
 }
