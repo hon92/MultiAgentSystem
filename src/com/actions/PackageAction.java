@@ -62,7 +62,7 @@ public class PackageAction extends Action
         });
 
     }
-    
+
     private String getFilePrefix()
     {
         return agent.getIp() + "-" + agent.getPort();
@@ -73,7 +73,7 @@ public class PackageAction extends Action
         File zipFile = Util.createZipFile(new File(projectFile));
         if (zipFile == null)
         {
-            return new ActionResult();
+            return new ActionResult("FAIL", true);
         }
         List<String> parts = prepareFileParts(zipFile);
         if (parts == null)
@@ -92,22 +92,20 @@ public class PackageAction extends Action
         for (String filename : filesNames)
         {
             File zipFile = Util.createZipFile(new File(filename));
-            if (zipFile != null)
+            if (zipFile == null)
             {
-                String zipFilename = zipFile.getName();
-                String nameWithoutZip = zipFilename.substring(0, zipFilename.length() - 4);
-                List<String> parts = prepareFileParts(zipFile);
-                if (parts == null)
-                {
-                    System.err.println(filename + " was skipped due to error");
-                    continue;
-                }
-                allParts.addAll(parts);
+                return new ActionResult("FAIL", true);
             }
-            else
+
+            String zipFilename = zipFile.getName();
+            String nameWithoutZip = zipFilename.substring(0, zipFilename.length() - 4);
+            List<String> parts = prepareFileParts(zipFile);
+            if (parts == null)
             {
-                System.err.println(filename + " cant be converted to zip");
+                System.err.println(filename + " was skipped due to error");
+                continue;
             }
+            allParts.addAll(parts);
         }
         return new ActionResult(allParts, true);
     }
