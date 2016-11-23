@@ -29,6 +29,7 @@ import javax.xml.bind.DatatypeConverter;
  */
 public class Util
 {
+
     public static String getHash(File file)
     {
         final String HASHING_ALGORITHM = "MD5";
@@ -49,47 +50,44 @@ public class Util
 
     public static File createZipFile(File file)
     {
-        if (file.exists() && file.isFile())
+        if (!file.exists() && !file.isFile())
         {
-            int dotIndex = file.getAbsolutePath().indexOf(".");
-            String zipFilename = file.getAbsolutePath().substring(0, dotIndex) + ".zip";
-            File resultZipFile = new File(zipFilename);
-            try
+            return null;
+        }
+
+        int dotIndex = file.getAbsolutePath().indexOf(".");
+        String zipFilename = file.getAbsolutePath().substring(0, dotIndex) + ".zip";
+        File resultZipFile = new File(zipFilename);
+        try
+        {
+            try (FileInputStream fis = new FileInputStream(file))
             {
-                try (FileInputStream fis = new FileInputStream(file))
+                try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(resultZipFile)))
                 {
-                    try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(resultZipFile)))
+                    ZipEntry zipEntry = new ZipEntry(file.getName());
+                    zos.putNextEntry(zipEntry);
+                    byte[] buffer = new byte[1024];
+                    int readBytes = 0;
+                    while ((readBytes = fis.read(buffer)) > 0)
                     {
-                        ZipEntry zipEntry = new ZipEntry(file.getName());
-                        zos.putNextEntry(zipEntry);
-                        byte[] buffer = new byte[1024];
-                        int readBytes = 0;
-                        while ((readBytes = fis.read(buffer)) > 0)
-                        {
-                            zos.write(buffer, 0, readBytes);
-                            zos.flush();
-                        }
-                        zos.closeEntry();
-                        return resultZipFile;
+                        zos.write(buffer, 0, readBytes);
+                        zos.flush();
                     }
+                    zos.closeEntry();
+                    return resultZipFile;
                 }
             }
-            catch (FileNotFoundException ex)
-            {
-                Logger.getLogger(PackageAction.class.getName()).log(Level.SEVERE, null, ex);
-                return null;
-            }
-            catch (IOException ex)
-            {
-                Logger.getLogger(PackageAction.class.getName()).log(Level.SEVERE, null, ex);
-                return null;
-            }
         }
-        else
+        catch (FileNotFoundException ex)
         {
-            System.err.println("File " + file.getAbsolutePath() + " cant be converted to zip because dont exists");
+            Logger.getLogger(PackageAction.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
         }
-        return null;
+        catch (IOException ex)
+        {
+            Logger.getLogger(PackageAction.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
+        }
     }
 
     public static boolean unzipFile(File zipFile)
