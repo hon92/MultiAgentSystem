@@ -149,6 +149,7 @@ public class Agent extends Observable
                 senderMessage);
 
         System.err.println(debugSeeStr);
+        addOtherAgent(senderIp, senderPortNumber);
         try
         {
             if (prefix.equals("ack"))
@@ -199,16 +200,19 @@ public class Agent extends Observable
         {
             action.performAck(senderIp, senderPort, senderMessage);
         }
+        displayMessage(senderMessage, senderIp + ":" + senderPort);
+    }
 
-        if (!senderIp.equals(getIp()) || senderPort != getPort())
+    private void addOtherAgent(String agentIp, int agentPort)
+    {
+        if (!agentIp.equals(getIp()) || agentPort != getPort())
         {
-            boolean addedToDb = agentsDb.addAgent(senderIp, senderPort);
+            boolean addedToDb = agentsDb.addAgent(agentIp, agentPort);
             if (addedToDb)
             {
-                System.err.println("save to db" + senderIp + ":" + senderPort);
+                System.err.println(String.format("Agent %s:%d was added to DB", agentIp, agentPort));
             }
         }
-        displayMessage(senderMessage, senderIp + ":" + senderPort);
     }
 
     private List<String> getSenderParameters(String message)
