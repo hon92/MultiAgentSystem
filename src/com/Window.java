@@ -13,6 +13,7 @@ import com.actions.PackageAction;
 import com.actions.SendAction;
 import com.actions.SolveAction;
 import com.actions.StoreAction;
+import com.actions.TerminateAction;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -140,8 +141,9 @@ public class Window extends javax.swing.JFrame implements Observer
         a.addAction(new AgentsAction());
         a.addAction(new ExecuteAction());
         a.addAction(new KnowledgeAction());
-        //a.addAction(new PackageAction(jarPath + File.separator + "MS.jar"));
-        a.addAction(new PackageAction("C:\\Users\\Honza\\Documents\\NetBeansProjects\\MS\\dist\\MS.jar"));
+        a.addAction(new TerminateAction());
+        //a.addAction(new PackageAction(jarPath + File.separator + "MS.jar")); // when jar distributed
+        a.addAction(new PackageAction("C:\\Users\\Honza\\Documents\\NetBeansProjects\\MS\\dist\\MS.jar")); // PC
 
         a.addObserver(this);
         a.start();
