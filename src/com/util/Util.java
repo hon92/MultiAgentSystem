@@ -147,4 +147,30 @@ public class Util
         return new String(Base64.getEncoder().encode(bytes));
     }
 
+    public static File findFile(File directory, String filename)
+    {
+        File file = null;
+        if (!directory.exists() || !directory.isDirectory())
+        {
+            return null;
+        }
+        for (File f : directory.listFiles())
+        {
+            if (f.isDirectory())
+            {
+                file = findFile(f, filename);
+                if (file != null)
+                {
+                    return file;
+                }
+            }
+            String[] s = f.getName().split("\\.(?=[^\\.]+$)");
+            if (s[0].equals(filename))
+            {
+                file = f;
+                break;
+            }
+        }
+        return file;
+    }
 }
