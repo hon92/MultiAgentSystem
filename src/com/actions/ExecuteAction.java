@@ -5,13 +5,11 @@
  */
 package com.actions;
 
+import com.Executor;
 import com.Parameter;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import com.util.Util;
+import java.io.File;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -26,6 +24,15 @@ public class ExecuteAction extends Action
     public ExecuteAction()
     {
         super("execute");
+        addNextParameter(new Parameter<ExecuteAction>(0, "(execute)\\sMain", this)
+        {
+            @Override
+            public ActionResult doAction(ExecuteAction sourceAction, List<String> arguments)
+            {
+                return performExecuteMain();
+            }
+        });
+
         addNextParameter(new Parameter<ExecuteAction>(1, "(execute)\\s(.+)", this)
         {
             @Override
@@ -41,30 +48,79 @@ public class ExecuteAction extends Action
         String source = params.get(0);
         System.out.println("execute " + source);
 
-        try
+        boolean executed = new Executor().execute(source);
+        if (executed)
         {
-            Process process = Runtime.getRuntime().exec(source);
-            int result = process.waitFor();
-
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream())))
-            {
-                String line;
-                while ((line = br.readLine()) != null)
-                {
-                    System.out.println(line);
-                }
-            }
             return new ActionResult(SUCCESS, true);
         }
-        catch (IOException e)
+        else
         {
-            return new ActionResult(FAIL, true);
-        }
-        catch (InterruptedException ex)
-        {
-            Logger.getLogger(ExecuteAction.class.getName()).log(Level.SEVERE, null, ex);
             return new ActionResult(FAIL, true);
         }
     }
 
+    private ActionResult performExecuteMain()
+    {
+        String folderPath = getAgent().getFilesFolderPath();
+        File folder = new File(folderPath);
+
+        File f = Util.findFile(folder, "Main");
+        if (f != null)
+        {
+            if (f.isFile())
+            {
+                String name = f.getName();
+                boolean executed = false;
+
+                if (name.endsWith("py"))
+                {
+                    executed = runPythonFile(f.getAbsolutePath());
+                }
+                else if (name.endsWith("jar"))
+                {
+                    executed = runJavaFile(f.getAbsolutePath());
+                }
+                else if (name.endsWith("exe"))
+                {
+                    executed = runExeFile(f.getAbsolutePath());
+                }
+                else
+                {
+                    System.err.println("Unsupported extension for execute program");
+                    return new ActionResult(FAIL, true);
+                }
+                if (executed)
+                {
+                    return new ActionResult(SUCCESS, true);
+                }
+                else
+                {
+                    return new ActionResult(FAIL, true);
+                }
+            }
+            else
+            {
+                return new ActionResult(FAIL, true);
+            }
+        }
+        else
+        {
+            return new ActionResult(FAIL, true);
+        }
+    }
+
+    private boolean runPythonFile(String filePath)
+    {
+        return new Executor().execute("python " + filePath);
+    }
+
+    private boolean runJavaFile(String filePath)
+    {
+        return new Executor().execute("java -jar " + filePath);
+    }
+
+    private boolean runExeFile(String filePath)
+    {
+        return new Executor().execute("\"" + filePath + "\"");
+    }
 }
