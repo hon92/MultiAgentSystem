@@ -139,6 +139,12 @@ public class PackageAction extends Action
             if (success)
             {
                 System.out.println("File " + id + " was corretly received");
+                String receivedZipPath = agent.getFilesFolderPath() + "\\" + id;
+                boolean unzipped = Util.unzipFile(new File(receivedZipPath));
+                if (unzipped)
+                {
+                    System.out.println(id + "was unzipped");
+                }
                 files.remove(k);
             }
             else
