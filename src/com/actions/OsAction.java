@@ -25,7 +25,8 @@ public class OsAction extends Action
         addNextParameter(new Parameter<OsAction>(0, "(os)", this)
         {
             @Override
-            public ActionResult doAction(OsAction sourceAction, List<String> arguments)
+            public ActionResult doAction(OsAction sourceAction,
+                    List<String> arguments)
             {
                 return performSendOsType();
             }

@@ -21,7 +21,8 @@ public class AgentsAction extends Action
         addNextParameter(new Parameter<AgentsAction>(0, "(agents)", this)
         {
             @Override
-            public ActionResult doAction(AgentsAction sourceAction, List<String> arguments)
+            public ActionResult doAction(AgentsAction sourceAction,
+                    List<String> arguments)
             {
                 return performSendAgentsList();
             }

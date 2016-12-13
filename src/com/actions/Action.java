@@ -6,14 +6,14 @@
 package com.actions;
 
 import com.Agent;
+import com.Logger;
 import com.Parameter;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
 
 /**
  *
@@ -78,33 +78,42 @@ public abstract class Action
         }
     }
 
-    public void response(String receiverIp, int receiverPort, String message, ActionResult actionResult)
+    public void response(String receiverIp,
+            int receiverPort,
+            String message,
+            ActionResult actionResult)
     {
         if (actionResult.hasResult())
         {
-            new Thread(new Runnable()
+            new Thread(() ->
             {
-                @Override
-                public void run()
+                for (String resultMsg : actionResult.getResultMessages())
                 {
-                    for (String resultMsg : actionResult.getResultMessages())
+                    try
                     {
-                        try
-                        {
-                            Thread.sleep(3);
-                        }
-                        catch (InterruptedException ex)
-                        {
-                            Logger.getLogger(Action.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                        sendResultAckMessage(agent.getIp(), agent.getPort(), message, resultMsg, receiverIp, receiverPort);
+                        Thread.sleep(3);
                     }
+                    catch (InterruptedException ex)
+                    {
+                        Logger.getInstance().log(Logger.Level.Error,
+                                ex.getMessage());
+                    }
+                    sendResultAckMessage(agent.getIp(),
+                            agent.getPort(),
+                            message,
+                            resultMsg,
+                            receiverIp,
+                            receiverPort);
                 }
             }, "UDP-sendingThread").start();
         }
         else
         {
-            sendAckMessage(agent.getIp(), agent.getPort(), receiverIp, receiverPort, message);
+            sendAckMessage(agent.getIp(),
+                    agent.getPort(),
+                    receiverIp,
+                    receiverPort,
+                    message);
         }
     }
 
@@ -119,7 +128,7 @@ public abstract class Action
 
     public void performAck(String ip, int port, String message)
     {
-        System.out.println("perform ack in action " + getPrefix());
+
     }
 
     protected boolean sendMessageToAddress(String sourceIp,
@@ -133,7 +142,8 @@ public abstract class Action
 
         try (DatagramSocket datagramSocket = new DatagramSocket())
         {
-            DatagramPacket datagramPacket = new DatagramPacket(msgBytes, msgBytes.length,
+            DatagramPacket datagramPacket = new DatagramPacket(msgBytes,
+                    msgBytes.length,
                     new InetSocketAddress(targetIp, targetPort));
             datagramSocket.send(datagramPacket);
             return true;
@@ -145,7 +155,10 @@ public abstract class Action
         }
     }
 
-    private int sendReceive(String targetIp, int targetPort, byte[] sendBytes, byte[] receiveBytes)
+    private int sendReceive(String targetIp,
+            int targetPort,
+            byte[] sendBytes,
+            byte[] receiveBytes)
     {
         final int RESEND_COUNT = 2;
         final int TIMEOUT = 100;
@@ -154,18 +167,21 @@ public abstract class Action
         try
         {
             DatagramSocket datagramSocket = new DatagramSocket();
-            DatagramPacket datagramPacket = new DatagramPacket(sendBytes, sendBytes.length,
+            DatagramPacket datagramPacket = new DatagramPacket(sendBytes,
+                    sendBytes.length,
                     new InetSocketAddress(targetIp, targetPort));
             datagramSocket.send(datagramPacket);
 
             while (true)
             {
-                DatagramPacket dp = new DatagramPacket(receiveBytes, receiveBytes.length);
+                DatagramPacket dp = new DatagramPacket(receiveBytes,
+                        receiveBytes.length);
                 try
                 {
                     datagramSocket.setSoTimeout(TIMEOUT);
                     datagramSocket.receive(dp);
-                    if (sendBytes[sendBytes.length - 1] == dp.getData()[dp.getLength() - 1])
+                    if (sendBytes[sendBytes.length - 1]
+                            == dp.getData()[dp.getLength() - 1])
                     {
                         return dp.getLength();
                     }
@@ -175,7 +191,8 @@ public abstract class Action
                     currentResendCount++;
                     if (currentResendCount >= RESEND_COUNT)
                     {
-                        System.out.println("TIMEOUT , PACKET IS LOST");
+                        Logger.getInstance().log(Logger.Level.Warning,
+                                "TIMEOUT , PACKET IS LOST");
                         return -1;
                     }
                 }
@@ -184,7 +201,7 @@ public abstract class Action
 
         catch (IOException ex)
         {
-            Logger.getLogger(Action.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getInstance().log(Logger.Level.Error, ex.getMessage());
             return -1;
         }
     }
@@ -195,7 +212,11 @@ public abstract class Action
             int targetPort,
             String message)
     {
-        return sendMessageToAddress(sourceIp, sourcePort, "ack " + message, targetIp, targetPort);
+        return sendMessageToAddress(sourceIp,
+                sourcePort,
+                "ack " + message,
+                targetIp,
+                targetPort);
     }
 
     public boolean sendResultAckMessage(String sourceIp,

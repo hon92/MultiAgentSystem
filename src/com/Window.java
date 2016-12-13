@@ -14,29 +14,23 @@ import com.actions.SendAction;
 import com.actions.SolveAction;
 import com.actions.StoreAction;
 import com.actions.TerminateAction;
-import java.awt.Color;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
-import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.CodeSource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Random;
 import javax.swing.DefaultListModel;
 import javax.swing.JOptionPane;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultCaret;
 import javax.swing.text.Document;
 import javax.swing.text.SimpleAttributeSet;
-import javax.swing.text.StyleConstants;
-import javax.swing.text.StyledDocument;
 
 /**
  *
@@ -58,16 +52,12 @@ public class Window extends javax.swing.JFrame implements Observer
     public Window()
     {
         initComponents();
-        try
-        {
-            CodeSource codeSource = Window.class.getProtectionDomain().getCodeSource();
-            File jarFile = new File(codeSource.getLocation().toURI().getPath());
-            jarPath = jarFile.getParentFile().getPath();
-        }
-        catch (URISyntaxException ex)
-        {
-            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        Logger.getInstance().log(Logger.Level.Info,
+                "Starting agent application");
+
+        CodeSource codeSource = Window.class.getProtectionDomain().getCodeSource();
+        File jarFile = new File(codeSource.getLocation().getPath());
+        jarPath = jarFile.getParentFile().getPath();
 
         agentsModel = new DefaultListModel<>();
         knowledgeModel = new DefaultListModel<>();
@@ -79,33 +69,15 @@ public class Window extends javax.swing.JFrame implements Observer
         DefaultCaret dc = (DefaultCaret) outputText.getCaret();
         dc.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 
-        //System.setOut(new PrintStream(new ConsoleStream(Color.BLACK), true));
-        //System.setErr(new PrintStream(new ConsoleStream(Color.RED), true));
-
         ipField.setText(getLocalIp());
-        String ip = getLocalIp();
-        //messageField.setText("send " + ip + " 8000 send " + ip + " 10000 " + "solve " + "4+2");
-        //messageField.setText("send " + ip + " 8000 " + "some msg");
-        //messageField.setText("send " + ip + " 8000 " + "solve 4+4");
-        //messageField.setText("solve 192.168.2.102 8000 4+2");
-        //messageField.setText("package 192.168.2.102 8000 192.168.2.102 5000");
-        //messageField.setText("package 192.168.2.102 8000 D:\\file1.txt D:\\file2.txt D:\\crazy_train.jpg D:\\MS.jar D:\\m.mp3");
-        //messageField.setText("package 192.168.2.102 8000 D:\\crazy_train.jpg");
-        //messageField.setText("file hash package 192.168.2.102 8000 D:\\file1.txt D:\\file2.txt");
-        //messageField.setText("send 192.168.2.102 8000 ahoj");
-        //messageField.setText("os");
-        //messageField.setText("execute java -jar D:\\MS.jar");
-        //messageField.setText("send 192.168.2.102 8000 package 192.168.2.102 5000 192.168.2.102 8000");
-        //messageField.setText("send 192.168.2.102:8000 ahoj");
+        
         try
         {
-            addAgent("a", ipField.getText(), 5000);
-            addAgent("b", ipField.getText(), 8000);
-            addAgent("c", ipField.getText(), 10000);
+            addAgent("a", ipField.getText(), getRandomPort());
         }
         catch (IOException | InterruptedException ex)
         {
-            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getInstance().log(Logger.Level.Error, ex.getMessage());
         }
     }
 
@@ -117,23 +89,20 @@ public class Window extends javax.swing.JFrame implements Observer
         }
         catch (UnknownHostException ex)
         {
-            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
             return "";
         }
     }
 
-    private void addAgent(String name, String ip, int port) throws IOException, InterruptedException
+    private int getRandomPort()
+    {
+        return new Random().nextInt(40000) + 10000;
+    }
+
+    private void addAgent(String name, String ip, int port) throws IOException,
+            InterruptedException
     {
         Agent a = new Agent(name, port, ip);
-        String type = "windows";
-        if (name.equals("b"))
-        {
-            type = "linux";
-        }
-        if (name.equals("c"))
-        {
-            type = "mac";
-        }
+        String type = System.getProperty("os.name");
         a.addAction(new SendAction());
         a.addAction(new StoreAction());
         a.addAction(new SolveAction());
@@ -142,14 +111,19 @@ public class Window extends javax.swing.JFrame implements Observer
         a.addAction(new ExecuteAction());
         a.addAction(new KnowledgeAction());
         a.addAction(new TerminateAction());
-        //a.addAction(new PackageAction(jarPath + File.separator + "MS.jar")); // when jar distributed
-        a.addAction(new PackageAction("C:\\Users\\Honza\\Documents\\NetBeansProjects\\MS\\dist\\MS.jar")); // PC
+        a.addAction(new PackageAction(jarPath + File.separator + "Main.jar"));
 
         a.addObserver(this);
         a.start();
         agents.add(a);
         agentsModel.addElement(name);
-        printOutput(String.format("Agent '%s' was created and listening at '%s:%d'", name, ip, port));
+        String infoMsg = String.format(
+                "Agent '%s' was created and listening at '%s:%d'",
+                name,
+                ip,
+                port);
+        printOutput(infoMsg);
+        Logger.getInstance().log(Logger.Level.Info, infoMsg);
     }
 
     public Agent getSelectedAgent()
@@ -159,7 +133,8 @@ public class Window extends javax.swing.JFrame implements Observer
         {
             return null;
         }
-        return agents.stream().filter((a) -> a.getName().equals(agentName)).findFirst().orElse(null);
+        return agents.stream().filter((a) -> a.getName()
+                .equals(agentName)).findFirst().orElse(null);
     }
 
     public synchronized void updateData(Agent a)
@@ -201,7 +176,7 @@ public class Window extends javax.swing.JFrame implements Observer
         }
         catch (BadLocationException ex)
         {
-            Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getInstance().log(Logger.Level.Error, ex.getMessage());
         }
     }
 
@@ -456,9 +431,9 @@ public class Window extends javax.swing.JFrame implements Observer
             agentNameField.setText("");
             agentPortField.setText("");
         }
-        catch (IOException | InterruptedException | NumberFormatException e)
+        catch (IOException | InterruptedException | NumberFormatException ex)
         {
-            System.err.println(e.toString());
+            Logger.getInstance().log(Logger.Level.Error, ex.getMessage());
         }
 
     }//GEN-LAST:event_createAgentButtonActionPerformed
@@ -471,14 +446,21 @@ public class Window extends javax.swing.JFrame implements Observer
         {
             return;
         }
-        Agent selectedAgent = getSelectedAgent();
-        if (selectedAgent != null)
+        Agent agent = getSelectedAgent();
+        if (agent != null)
         {
-            selectedAgent.see(selectedAgent.getIp() + ":" + selectedAgent.getPort() + " " + message);
+            String seeMsg = String.format("%s:%d %s",
+                    agent.getIp(),
+                    agent.getPort(),
+                    message);
+            agent.see(seeMsg);
         }
         else
         {
-            JOptionPane.showMessageDialog(this, "No agent is selected in agents list", "No agent", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "No agent is selected in agents list",
+                    "No agent",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_sendButtonActionPerformed
 
@@ -496,7 +478,7 @@ public class Window extends javax.swing.JFrame implements Observer
             }
             catch (IOException | InterruptedException ex)
             {
-                Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getInstance().log(Logger.Level.Error, ex.getMessage());
             }
         }
     }//GEN-LAST:event_jButton1ActionPerformed
@@ -562,34 +544,6 @@ public class Window extends javax.swing.JFrame implements Observer
             w.setLocationRelativeTo(null);
             w.setVisible(true);
         });
-    }
-
-    private class ConsoleStream extends ByteArrayOutputStream
-    {
-
-        private final SimpleAttributeSet attributes;
-
-        public ConsoleStream(Color color)
-        {
-            attributes = new SimpleAttributeSet();
-            StyleConstants.setForeground(attributes, color);
-        }
-
-        @Override
-        public void flush() throws IOException
-        {
-            String msg = toString();
-            StyledDocument doc = outputText.getStyledDocument();
-            try
-            {
-                doc.insertString(doc.getLength(), msg, attributes);
-                reset();
-            }
-            catch (BadLocationException ex)
-            {
-                Logger.getLogger(Window.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

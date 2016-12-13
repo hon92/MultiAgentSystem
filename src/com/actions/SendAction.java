@@ -12,17 +12,18 @@ import java.util.List;
  *
  * @author Honza
  */
-//command
-//send ip port message
 public class SendAction extends Action
 {
     public SendAction()
     {
         super("send");
-        addNextParameter(new Parameter<SendAction>(3, "(send)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3}):(\\d+)\\s(.+)", this)
+        addNextParameter(new Parameter<SendAction>(3,
+                "(send)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3}):(\\d+)\\s(.+)",
+                this)
         {
             @Override
-            public ActionResult doAction(SendAction sourceAction, List<String> arguments)
+            public ActionResult doAction(SendAction sourceAction,
+                    List<String> arguments)
             {
                 return performSend(arguments);
             }
@@ -35,7 +36,11 @@ public class SendAction extends Action
         String portStr = params.get(1);
         String message = params.get(2);
         int port = Integer.parseInt(portStr);
-        boolean sended = sendMessageToAddress(agent.getIp(), agent.getPort(), message, ip, port);
+        boolean sended = sendMessageToAddress(agent.getIp(),
+                agent.getPort(),
+                message,
+                ip,
+                port);
         return new ActionResult(sended);
     }
 

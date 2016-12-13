@@ -5,10 +5,9 @@
  */
 package com.util;
 
-import com.actions.PackageAction;
+import com.Logger;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,8 +15,6 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -39,7 +36,8 @@ public class Util
             MessageDigest md = MessageDigest.getInstance(HASHING_ALGORITHM);
             md.update(Files.readAllBytes(Paths.get(file.getAbsolutePath())));
             byte[] hashBytes = md.digest();
-            String digestInHex = DatatypeConverter.printHexBinary(hashBytes).toUpperCase();
+            String digestInHex = DatatypeConverter.printHexBinary(hashBytes)
+                    .toUpperCase();
             return digestInHex;
         }
         catch (IOException | NoSuchAlgorithmException ex)
@@ -50,42 +48,43 @@ public class Util
 
     public static File createZipFile(File file)
     {
-        if (!file.exists() && !file.isFile())
+        if (!file.exists())
         {
             return null;
         }
 
-        int dotIndex = file.getAbsolutePath().indexOf(".");
-        String zipFilename = file.getAbsolutePath().substring(0, dotIndex) + ".zip";
-        File resultZipFile = new File(zipFilename);
+        String zipFilename;
+        if (file.isDirectory())
+        {
+            zipFilename = file.getName() + ".zip";
+        }
+        else
+        {
+            String absPath = file.getAbsolutePath();
+            int dotIndex = absPath.indexOf(".");
+            zipFilename = absPath.substring(0, dotIndex) + ".zip";
+        }
+
+        File zipFile = new File(zipFilename);
+
         try
         {
-            try (FileInputStream fis = new FileInputStream(file))
+            try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile)))
             {
-                try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(resultZipFile)))
+                if (file.isFile())
                 {
-                    ZipEntry zipEntry = new ZipEntry(file.getName());
-                    zos.putNextEntry(zipEntry);
-                    byte[] buffer = new byte[1024];
-                    int readBytes = 0;
-                    while ((readBytes = fis.read(buffer)) > 0)
-                    {
-                        zos.write(buffer, 0, readBytes);
-                        zos.flush();
-                    }
-                    zos.closeEntry();
-                    return resultZipFile;
+                    zipFile(zos, file, file);
+                }
+                else
+                {
+                    zipDirectory(zos, file, file);
                 }
             }
-        }
-        catch (FileNotFoundException ex)
-        {
-            Logger.getLogger(PackageAction.class.getName()).log(Level.SEVERE, null, ex);
-            return null;
+            return zipFile;
         }
         catch (IOException ex)
         {
-            Logger.getLogger(PackageAction.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getInstance().log(Logger.Level.Error, ex.getMessage());
             return null;
         }
     }
@@ -98,8 +97,10 @@ public class Util
         }
 
         String filename = zipFile.getName();
-        String nameWithouExtension = filename.substring(0, filename.length() - 4);
-        String outputFolderName = zipFile.getParent() + File.separator + nameWithouExtension;
+        String nameWithouExtension = filename.substring(0,
+                filename.length() - 4);
+        String outputFolderName
+                = zipFile.getParent() + File.separator + nameWithouExtension;
         File outputFolder = new File(outputFolderName);
         if (!outputFolder.exists())
         {
@@ -132,7 +133,7 @@ public class Util
         }
         catch (IOException ex)
         {
-            ex.printStackTrace();
+            Logger.getInstance().log(Logger.Level.Error, ex.getMessage());
             return false;
         }
     }
@@ -173,4 +174,52 @@ public class Util
         }
         return file;
     }
+
+    private static void zipDirectory(ZipOutputStream zos,
+            File directory,
+            File originDirectory) throws IOException
+    {
+        if (!directory.exists() || !directory.isDirectory())
+        {
+            return;
+        }
+
+        File[] files = directory.listFiles();
+        for (File f : files)
+        {
+            if (f.isDirectory())
+            {
+                zipDirectory(zos, f, originDirectory);
+            }
+            else
+            {
+                zipFile(zos, f, originDirectory);
+            }
+        }
+    }
+
+    private static void zipFile(ZipOutputStream zos,
+            File file, File originDirectory) throws IOException
+    {
+        if (!file.exists() || !file.isFile())
+        {
+            return;
+        }
+        try (FileInputStream fis = new FileInputStream(file))
+        {
+            int len = originDirectory.getPath().length() + 1;
+            String sub = file.getPath().substring(len);
+            ZipEntry zipEntry = new ZipEntry(sub);
+            zos.putNextEntry(zipEntry);
+            byte[] buffer = new byte[1024];
+            int readBytes = 0;
+            while ((readBytes = fis.read(buffer)) > 0)
+            {
+                zos.write(buffer, 0, readBytes);
+                zos.flush();
+            }
+            zos.closeEntry();
+        }
+    }
+
 }

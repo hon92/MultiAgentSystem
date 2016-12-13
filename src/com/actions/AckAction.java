@@ -30,7 +30,11 @@ public class AckAction extends Action
     public ActionResult perform(String msg)
     {
         String ackMsg = String.format("ack %s", msg);
-        boolean sended = sendMessageToAddress(agentIp, agentPort, ackMsg, senderIp, senderPort);
+        boolean sended = sendMessageToAddress(agentIp,
+                agentPort,
+                ackMsg,
+                senderIp,
+                senderPort);
         return new ActionResult(sended);
     }
 

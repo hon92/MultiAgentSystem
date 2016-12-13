@@ -7,6 +7,7 @@ package com;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  *
@@ -14,10 +15,9 @@ import java.util.List;
  */
 public class AgentDb
 {
-    private List<AgentEntry> agentDb;
+    private final List<AgentEntry> agentDb;
     private class AgentEntry
     {
-
         public String address;
         public int port;
 
@@ -38,6 +38,14 @@ public class AgentDb
             return false;
         }
 
+        @Override
+        public int hashCode()
+        {
+            int hash = 7;
+            hash = 23 * hash + Objects.hashCode(this.address);
+            hash = 23 * hash + this.port;
+            return hash;
+        }
     }
 
     public AgentDb()

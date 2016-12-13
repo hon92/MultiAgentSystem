@@ -23,19 +23,23 @@ public class KnowledgeAction extends Action
     public KnowledgeAction()
     {
         super("knowledge");
-        addNextParameter(new Parameter<KnowledgeAction>(0, "(knowledge)\\s\\*", this)
+        addNextParameter(new Parameter<KnowledgeAction>(0, "(knowledge)\\s\\*",
+                this)
         {
             @Override
-            public ActionResult doAction(KnowledgeAction sourceAction, List<String> arguments)
+            public ActionResult doAction(KnowledgeAction sourceAction,
+                    List<String> arguments)
             {
                 return performAllKnowledges();
             }
         });
 
-        addNextParameter(new Parameter<KnowledgeAction>(1, "(knowledge)\\s(.+)", this)
+        addNextParameter(new Parameter<KnowledgeAction>(1, "(knowledge)\\s(.+)",
+                this)
         {
             @Override
-            public ActionResult doAction(KnowledgeAction sourceAction, List<String> arguments)
+            public ActionResult doAction(KnowledgeAction sourceAction,
+                    List<String> arguments)
             {
                 return performQuery(arguments);
             }

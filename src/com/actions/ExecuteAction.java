@@ -24,19 +24,24 @@ public class ExecuteAction extends Action
     public ExecuteAction()
     {
         super("execute");
-        addNextParameter(new Parameter<ExecuteAction>(0, "(execute)\\sMain", this)
+        addNextParameter(new Parameter<ExecuteAction>(2,
+                "(execute)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3}):(\\d+)",
+                this)
         {
             @Override
-            public ActionResult doAction(ExecuteAction sourceAction, List<String> arguments)
+            public ActionResult doAction(ExecuteAction sourceAction,
+                    List<String> arguments)
             {
-                return performExecuteMain();
+                return performExecuteAgent(arguments);
             }
         });
 
-        addNextParameter(new Parameter<ExecuteAction>(1, "(execute)\\s(.+)", this)
+        addNextParameter(new Parameter<ExecuteAction>(1, "(execute)\\s(.+)",
+                this)
         {
             @Override
-            public ActionResult doAction(ExecuteAction sourceAction, List<String> arguments)
+            public ActionResult doAction(ExecuteAction sourceAction,
+                    List<String> arguments)
             {
                 return performExecute(arguments);
             }
@@ -46,7 +51,6 @@ public class ExecuteAction extends Action
     private ActionResult performExecute(List<String> params)
     {
         String source = params.get(0);
-        System.out.println("execute " + source);
 
         boolean executed = new Executor().execute(source);
         if (executed)
@@ -59,44 +63,28 @@ public class ExecuteAction extends Action
         }
     }
 
-    private ActionResult performExecuteMain()
+    private ActionResult performExecuteAgent(List<String> params)
     {
-        String folderPath = getAgent().getFilesFolderPath();
-        File folder = new File(folderPath);
+        final String MAIN_FILE_FILENAME = "Main";
+        String ip = params.get(0);
+        int port = Integer.parseInt(params.get(1));
 
-        File f = Util.findFile(folder, "Main");
-        if (f != null)
+        ip = ip.replace(".", "-");
+
+        String agentFolderPath = getAgent().getFilesFolderPath();
+
+        File agentFolder = new File(agentFolderPath
+                + File.separator
+                + ip
+                + "-"
+                + port);
+
+        if (agentFolder.exists() && agentFolder.isDirectory())
         {
-            if (f.isFile())
+            File mainFile = Util.findFile(agentFolder, MAIN_FILE_FILENAME);
+            if (mainFile != null && new Executor().executeFile(mainFile))
             {
-                String name = f.getName();
-                boolean executed = false;
-
-                if (name.endsWith("py"))
-                {
-                    executed = runPythonFile(f.getAbsolutePath());
-                }
-                else if (name.endsWith("jar"))
-                {
-                    executed = runJavaFile(f.getAbsolutePath());
-                }
-                else if (name.endsWith("exe"))
-                {
-                    executed = runExeFile(f.getAbsolutePath());
-                }
-                else
-                {
-                    System.err.println("Unsupported extension for execute program");
-                    return new ActionResult(FAIL, true);
-                }
-                if (executed)
-                {
-                    return new ActionResult(SUCCESS, true);
-                }
-                else
-                {
-                    return new ActionResult(FAIL, true);
-                }
+                return new ActionResult(SUCCESS, true);
             }
             else
             {
@@ -107,20 +95,5 @@ public class ExecuteAction extends Action
         {
             return new ActionResult(FAIL, true);
         }
-    }
-
-    private boolean runPythonFile(String filePath)
-    {
-        return new Executor().execute("python " + filePath);
-    }
-
-    private boolean runJavaFile(String filePath)
-    {
-        return new Executor().execute("java -jar " + filePath);
-    }
-
-    private boolean runExeFile(String filePath)
-    {
-        return new Executor().execute("\"" + filePath + "\"");
     }
 }

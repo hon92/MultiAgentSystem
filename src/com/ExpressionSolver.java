@@ -4,8 +4,6 @@
  * and open the template in the editor.
  */
 package com;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
@@ -37,7 +35,7 @@ public class ExpressionSolver
         }
         catch (ScriptException ex)
         {
-            Logger.getLogger(ExpressionSolver.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getInstance().log(Logger.Level.Error, ex.getMessage());
             return null;
         }
     }

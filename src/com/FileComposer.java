@@ -25,7 +25,11 @@ public class FileComposer
     private final String id;
     private final List<Part> parts;
 
-    public FileComposer(String sourceIp, int sourcePort, int partsCount, String hash, String id)
+    public FileComposer(String sourceIp,
+            int sourcePort,
+            int partsCount,
+            String hash,
+            String id)
     {
         this.sourceIp = sourceIp;
         this.sourcePort = sourcePort;
@@ -56,7 +60,8 @@ public class FileComposer
         {
             if (!destFolder.mkdir())
             {
-                System.err.println("cannot create directory");
+                Logger.getInstance().log(Logger.Level.Error,
+                        "Cannot create agent folder for received files");
                 return false;
             }
         }
@@ -72,12 +77,9 @@ public class FileComposer
         }
         catch (IOException ex)
         {
-            ex.printStackTrace();
+            Logger.getInstance().log(Logger.Level.Error, ex.getMessage());
             return false;
         }
         return Util.getHash(destFile).equals(hash);
     }
-
-
-
 }

@@ -5,13 +5,17 @@
  */
 package com.actions;
 
+import com.Agent;
 import com.FileComposer;
+import com.Logger;
 import com.Parameter;
 import com.Part;
 import com.util.Util;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,19 +30,22 @@ import java.util.regex.Pattern;
 public class PackageAction extends Action
 {
 
-    private final String projectFile;
+    private final String projectFilePath;
     private final Map<String, FileComposer> files;
 
     public PackageAction(String projectFile)
     {
         super("package");
-        this.projectFile = projectFile;
+        this.projectFilePath = projectFile;
         files = new HashMap<>();
 
-        addNextParameter(new Parameter<PackageAction>(2, "(package)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3}):(\\d+)", this)
+        addNextParameter(new Parameter<PackageAction>(2,
+                "(package)\\s(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3}):(\\d+)",
+                this)
         {
             @Override
-            public ActionResult doAction(PackageAction sourceAction, List<String> arguments)
+            public ActionResult doAction(PackageAction sourceAction,
+                    List<String> arguments)
             {
                 return sourceAction.performSendProject();
             }
@@ -48,14 +55,17 @@ public class PackageAction extends Action
             {
                 String sourceIp = arguments.get(0);
                 int sourcePort = Integer.parseInt(arguments.get(1));
-                return sourceIp.equals(agent.getIp()) && sourcePort == agent.getPort();
+                return sourceIp.equals(
+                        agent.getIp()) && sourcePort == agent.getPort();
             }
         });
 
-        addNextParameter(new Parameter<PackageAction>(1, "(package)\\s(.+)", this)
+        addNextParameter(new Parameter<PackageAction>(1, "(package)\\s(.+)",
+                this)
         {
             @Override
-            public ActionResult doAction(PackageAction sourceAction, List<String> arguments)
+            public ActionResult doAction(PackageAction sourceAction,
+                    List<String> arguments)
             {
                 return sourceAction.performSendFiles(arguments);
             }
@@ -63,14 +73,36 @@ public class PackageAction extends Action
 
     }
 
-    private String getFilePrefix()
-    {
-        return agent.getIp() + "-" + agent.getPort();
-    }
-
     private ActionResult performSendProject()
     {
-        File zipFile = Util.createZipFile(new File(projectFile));
+        final File projectFile = new File("C:\\Users\\Honza\\Documents\\NetBeansProjects\\MS\\dist\\Main.jar");
+        File projectParentFolder = projectFile.getParentFile();
+        Agent a = getAgent();
+        String ip = a.getIp();
+        int port = a.getPort();
+        String agentFolderName = ip.replace(".", "-") + "-" + port;
+        File agentFolder = new File(projectParentFolder, agentFolderName);
+        if (!agentFolder.exists())
+        {
+            if (!agentFolder.mkdir())
+            {
+                Logger.getInstance().log(Logger.Level.Error,
+                        "Cant create agent folder");
+            }
+        }
+        try
+        {
+            Files.copy(projectFile.toPath(),
+                    new File(agentFolder,
+                            projectFile.getName()).toPath(),
+                    StandardCopyOption.REPLACE_EXISTING);
+        }
+        catch (IOException ex)
+        {
+            Logger.getInstance().log(Logger.Level.Error, ex.getMessage());
+        }
+
+        File zipFile = Util.createZipFile(agentFolder);
         if (zipFile == null)
         {
             return new ActionResult("FAIL", true);
@@ -97,12 +129,11 @@ public class PackageAction extends Action
                 return new ActionResult("FAIL", true);
             }
 
-            String zipFilename = zipFile.getName();
-            String nameWithoutZip = zipFilename.substring(0, zipFilename.length() - 4);
             List<String> parts = prepareFileParts(zipFile);
             if (parts == null)
             {
-                System.err.println(filename + " was skipped due to error");
+                Logger.getInstance().log(Logger.Level.Warning,
+                        filename + " was skipped due to error");
                 continue;
             }
             allParts.addAll(parts);
@@ -130,7 +161,8 @@ public class PackageAction extends Action
             files.put(k, myFile);
         }
 
-        System.out.println("Receiving " + id + " " + currentPart + "/" + parts);
+        Logger.getInstance().log(Logger.Level.Info,
+                "Receiving " + id + " " + currentPart + "/" + parts);
         myFile.addPart(new Part(currentPart, size, data));
 
         if (myFile.isComplete())
@@ -138,18 +170,19 @@ public class PackageAction extends Action
             boolean success = myFile.writeAndCheck(agent.getFilesFolderPath());
             if (success)
             {
-                System.out.println("File " + id + " was corretly received");
                 String receivedZipPath = agent.getFilesFolderPath() + "\\" + id;
                 boolean unzipped = Util.unzipFile(new File(receivedZipPath));
                 if (unzipped)
                 {
-                    System.out.println(id + "was unzipped");
+                    Logger.getInstance().log(Logger.Level.Info,
+                            "File " + id + " was received and unzipped");
                 }
                 files.remove(k);
             }
             else
             {
-                System.err.println("File " + id + " is corrupted");
+                Logger.getInstance().log(Logger.Level.Error,
+                        "File " + id + " is corrupted");
             }
         }
         return new ActionResult("RECEIVED", true);

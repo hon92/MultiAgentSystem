@@ -27,7 +27,8 @@ public class SolveAction extends Action
         addNextParameter(new Parameter<SolveAction>(1, "(solve)\\s(.+)", this)
         {
             @Override
-            public ActionResult doAction(SolveAction sourceAction, List<String> arguments)
+            public ActionResult doAction(SolveAction sourceAction,
+                    List<String> arguments)
             {
                 return performSolve(arguments);
             }
@@ -50,7 +51,8 @@ public class SolveAction extends Action
     private ActionResult performSolve(List<String> params)
     {
         String expression = params.get(0);
-        String expressionResult = expressionSolver.evaluate(expression).toString();
+        String expressionResult = expressionSolver.evaluate(expression)
+                .toString();
         return new ActionResult(expressionResult, true);
     }
 

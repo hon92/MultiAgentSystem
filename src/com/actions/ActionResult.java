@@ -20,7 +20,9 @@ public class ActionResult
     private final boolean hasResult;
 
 
-    private ActionResult(List<String> resultMessages, boolean performed, boolean hasResult)
+    private ActionResult(List<String> resultMessages,
+            boolean performed,
+            boolean hasResult)
     {
         this.resultMessages = resultMessages;
         this.performed = performed;

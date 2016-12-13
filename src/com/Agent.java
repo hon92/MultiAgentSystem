@@ -8,7 +8,6 @@ package com;
 import com.actions.AckAction;
 import com.actions.Action;
 import com.actions.ActionResult;
-import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -19,8 +18,6 @@ import java.util.List;
 import java.util.Observable;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,7 +27,6 @@ import java.util.regex.Pattern;
  */
 public class Agent extends Observable
 {
-
     private static final String MSG_PATTERN = "(\\d{0,3}.\\d{0,3}.\\d{0,3}.\\d{0,3}):(\\d+)\\s(.+)";
     private static final String ACK_MESSAGE = "(ack)\\s(.+)";
     private static final String RESULT_ACK_MESSAGE = "(ack)\\s\"(.+)\"\\s(.+)";
@@ -56,11 +52,6 @@ public class Agent extends Observable
         this.port = port;
         this.ip = ip;
         this.agentsDb = new AgentDb();
-        File filesFolder = new File(getFilesFolderPath());
-        if (!filesFolder.exists())
-        {
-            filesFolder.mkdir();
-        }
     }
 
     public String getFilesFolderPath()
@@ -134,7 +125,8 @@ public class Agent extends Observable
         List<String> params = getSenderParameters(msg);
         if (params == null)
         {
-            System.err.println("Unknown message format: " + msg);
+            Logger.getInstance().log(Logger.Level.Error,
+                    "Unknown message format: " + msg);
             return;
         }
 
@@ -148,7 +140,7 @@ public class Agent extends Observable
                 getName() + ":" + getPort(), senderIp + ":" + senderPort,
                 senderMessage);
 
-        System.err.println(debugSeeStr);
+        Logger.getInstance().log(Logger.Level.Info, debugSeeStr);
         addOtherAgent(senderIp, senderPortNumber);
         try
         {
@@ -170,16 +162,20 @@ public class Agent extends Observable
         }
         catch (Exception ex)
         {
-            Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getInstance().log(Logger.Level.Error, ex.getMessage());
         }
     }
 
-    private void handleAction(Action action, String receiverIp, int receiverPort, String senderMessage)
+    private void handleAction(Action action,
+            String receiverIp,
+            int receiverPort,
+            String senderMessage)
     {
         action.handle(receiverIp, receiverPort, senderMessage);
     }
 
-    private void handleAck(String senderIp, int senderPort, String senderMessage) throws Exception
+    private void handleAck(String senderIp, int senderPort, String senderMessage)
+            throws Exception
     {
         Matcher m = ackPattern.matcher(senderMessage);
         Matcher resM = resultAckPattern.matcher(senderMessage);
@@ -210,7 +206,10 @@ public class Agent extends Observable
             boolean addedToDb = agentsDb.addAgent(agentIp, agentPort);
             if (addedToDb)
             {
-                System.err.println(String.format("Agent %s:%d was added to DB", agentIp, agentPort));
+                Logger.getInstance().log(Logger.Level.Info,
+                        String.format("Agent %s:%d was added to DB",
+                                agentIp,
+                                agentPort));
             }
         }
     }
@@ -249,10 +248,13 @@ public class Agent extends Observable
     {
         if (!ip.equals(getIp()) || port != getPort())
         {
-            ActionResult ar = new AckAction(getIp(), getPort(), ip, port).perform(msg);
+            ActionResult ar = new AckAction(getIp(),
+                    getPort(),
+                    ip,
+                    port).perform(msg);
             if (!ar.isPerformed())
             {
-                System.err.println("ACK send failed");
+                Logger.getInstance().log(Logger.Level.Error, "ACK send failed");
             }
         }
         else
@@ -300,19 +302,22 @@ public class Agent extends Observable
                     }
                     String senderMessage = receiveParams.get(2);
                     String ackMessage = "ack " + senderMessage;
-                    serverChannel.send(ByteBuffer.wrap(ackMessage.getBytes()), socketAddress);
+                    serverChannel.send(ByteBuffer.wrap(ackMessage.getBytes()),
+                            socketAddress);
                     messages.put(receivedMessage);
                 }
                 catch (IOException ex)
                 {
                     if (running)
                     {
-                        Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getInstance().log(Logger.Level.Error,
+                                ex.getMessage());
                     }
                 }
                 catch (InterruptedException ex)
                 {
-                    Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getInstance().log(Logger.Level.Error,
+                            ex.getMessage());
                 }
             }
         }
@@ -341,7 +346,8 @@ public class Agent extends Observable
                 }
                 catch (InterruptedException ex)
                 {
-                    Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getInstance().log(Logger.Level.Error,
+                            ex.getMessage());
                 }
             }
         }

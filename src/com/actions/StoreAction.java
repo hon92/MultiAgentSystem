@@ -20,7 +20,8 @@ public class StoreAction extends Action
         addNextParameter(new Parameter<StoreAction>(1, "(store)\\s(.+)", this)
         {
             @Override
-            public ActionResult doAction(StoreAction sourceAction, List<String> arguments)
+            public ActionResult doAction(StoreAction sourceAction,
+                    List<String> arguments)
             {
                 return performStore(arguments);
             }

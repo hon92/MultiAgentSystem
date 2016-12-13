@@ -23,7 +23,8 @@ public class TerminateAction extends Action
         addNextParameter(new Parameter<TerminateAction>(0, "(terminate)", this)
         {
             @Override
-            public ActionResult doAction(TerminateAction sourceAction, List<String> arguments)
+            public ActionResult doAction(TerminateAction sourceAction,
+                    List<String> arguments)
             {
                 return performTerminate();
             }
